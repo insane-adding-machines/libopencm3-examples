@@ -1,7 +1,7 @@
 /*
  * This file is part of the libopencm3 project.
  * 
- * Copyright (C) 2016 Oliver Meier <h2obrain@gmail.com>
+ * Copyright (C) 2016 ???
  *
  * This library is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -15,6 +15,15 @@
  *
  * You should have received a copy of the GNU Lesser General Public License
  * along with this library.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ *
+ *
+ * This code is based on a fork off a graphics example for libopencm3 made
+ * by Charles McManis in 2014.
+ * The basic drawing functions (circle, line, round-rectangle) are based on
+ * the simple graphics library written by the folks at AdaFruit.
+ * [Adafruit_GFX.cpp](/adafruit/Adafruit-GFX-Library/blob/master/Adafruit_GFX.cpp)
+ *
  */
 
 
@@ -33,7 +42,9 @@ gfx_init(uint16_t *surface, int32_t width, int32_t height) {
 	__gfx_state.height       = height;
 	__gfx_state.visible_area = (visible_area_t){0,0,width,height};
 	__gfx_state.rotation     = 0;
-	__gfx_state.cursor_y     = __gfx_state.cursor_x    = __gfx_state.cursor_x_orig = 0;
+	__gfx_state.cursor_y     = __gfx_state.cursor_x
+	                         = __gfx_state.cursor_x_orig
+							 = 0;
 	__gfx_state.fontscale    = 1;
 	__gfx_state.textcolor    = 0;
 	__gfx_state.wrap         = true;
@@ -136,6 +147,7 @@ void gfx_draw_pixel(int16_t x, int16_t y, uint16_t color) {
 
 	return;
 }
+
 
 // Bresenham's algorithm - thx wikpedia
 void gfx_draw_line(int16_t x0, int16_t y0,

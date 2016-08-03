@@ -27,6 +27,93 @@
 
 #include "application_balls.h"
 
+
+#include "h2_bezier.h"
+
+uint16_t color = GFX_COLOR_GREEN;
+void draw_segment(point2d_t p1, point2d_t p2);
+void draw_segment(point2d_t p1, point2d_t p2) {
+	gfx_draw_line((int16_t)p1.x,(int16_t)p1.y, (int16_t)p2.x,(int16_t)p2.y, color);
+}
+static inline void draw_bezier(void) {
+	uint32_t i;
+	point2d_t p[] = {
+			{ 161, 191 },
+			{ 132, 101 },
+			{ 209, 156 },
+			{ 113, 156 },
+			{ 190, 101 },
+
+			{ 161, 191 },
+			{ 132, 101 },
+			{ 209, 156 },
+			{ 113, 156 },
+			{ 190, 101 },
+
+			{ 161, 191 },
+			{ 132, 101 },
+			{ 209, 156 },
+			{ 113, 156 },
+			{ 190, 101 },
+
+			{ 161, 191 },
+
+
+//			{ 161, 166 },
+//			{ 146, 121 },
+//			{ 185, 149 },
+//			{ 137, 149 },
+//			{ 176, 121 },
+//
+//			{ 161, 166 },
+//			{ 146, 121 },
+//			{ 185, 149 },
+//			{ 137, 149 },
+//			{ 176, 121 },
+//
+//			{ 161, 166 },
+//			{ 146, 121 },
+//			{ 185, 149 },
+//			{ 137, 149 },
+//			{ 176, 121 },
+//
+//			{ 161, 166 },
+
+	};
+	uint32_t num_points  = sizeof(p)/sizeof(p[0]);
+	uint32_t num_ipoints = h2_bezier_calculate_int_points_length(num_points);
+
+	color = GFX_COLOR_GREEN;
+	for (i=0; i<num_points-1; i++) {
+		draw_segment(p[i],p[i+1]);
+	}
+
+	float tension = 1.0f;
+	color = GFX_COLOR_BLUE;
+	point2d_t pi1[num_ipoints];
+	for (uint32_t j=0; j<20; j++) {
+		h2_bezier_cubic(pi1, p, num_points, 0.0001f, tension);
+		for (i=0; i<num_ipoints-1; i+=3) {
+			h2_bezier_draw_cubic(draw_segment, 20, pi1[i], pi1[i+1], pi1[i+2], pi1[i+3]);
+		}
+		color += 100;
+		tension /= 1.1;
+	}
+//	h2_bezier_cubic(pi1, p, num_points, 1.0f, 1.0f);
+//	for (i=0; i<num_ipoints-1; i+=3) {
+//		h2_bezier_draw_cubic(draw_segment, 10, pi1[i], pi1[i+1], pi1[i+2], pi1[i+3]);
+//		//draw_segment(pi1[i],pi1[i+3]);
+//	}
+
+	color = GFX_COLOR_RED;
+	point2d_t pi2[num_ipoints];
+	h2_bezier_cubic_symmetric(pi2, p, num_points, 1.0f, 3.0f);
+	for (i=0; i<num_ipoints-1; i+=3) {
+		h2_bezier_draw_cubic(draw_segment, 20, pi2[i], pi2[i+1], pi2[i+2], pi2[i+3]);
+	}
+
+}
+
 void spi5_isr() {
 	if (ILI9341_SPI_IS_SELECTED()) {
 		ili9341_spi5_isr();
@@ -106,6 +193,11 @@ int main(void) {
 	/* draw the stage (draw_plane) */
 	gfx_draw_rect(0,39,gfx_width(),gfx_height()-40, GFX_COLOR_WHITE);
 	gfx_fill_rect(draw_plane.x, draw_plane.y, draw_plane.w, draw_plane.h, draw_plane.color);
+
+	/* draw bezier */
+	gfx_set_surface_visible_area(1,41, 319,239);
+	draw_bezier();
+	gfx_set_surface_visible_area_max();
 
     ili9341_flip_layer1_buffer();
 
