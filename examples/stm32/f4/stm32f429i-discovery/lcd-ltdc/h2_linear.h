@@ -4,12 +4,15 @@
  *  Created on: 31 Jul 2016
  *      Author: h2obrain
  *
+ * My old actionscript-library from 2004
+ *
  * :) http://softsurfer.com/
  * ? http://softsurfer.com/Archive/algorithm_0106/algorithm_0106.htm#Distance%20between%20Lines
  * ?? http://stochastix.wordpress.com/2008/12/28/distance-between-two-lines/
  * ??? http://www.mc.edu/campus/users/travis/maa/proceedings/spring2001/bard.himel.pdf
  * http://stackoverflow.com/questions/217578/point-in-polygon-aka-hit-test
  *  http://local.wasp.uwa.edu.au/~pbourke/geometry
+ *  http://steve.hollasch.net/cgindex/math/fowler.html
   */
 
 #ifndef H2_LINEAR_H_
@@ -96,6 +99,11 @@ bool
 point2d_compare(point2d_t p1, point2d_t p2, float resolution) {
 	point2d_t dist = point2d_sub_ts(p1,p2);
 	return (h2lin_float_abs(dist.x) < resolution) && (h2lin_float_abs(dist.y) < resolution);
+}
+static inline
+point2d_t
+point2d_abs(point2d_t p) {
+	return (point2d_t) {h2lin_float_abs(p.x),h2lin_float_abs(p.y)};
 }
 
 
@@ -226,6 +234,8 @@ dist_segment_to_segment(segment2d_t s1, segment2d_t s2) {
 }
 
 /*
+ * Fowler angles can be used to COMPARE angles between points fast
+ *
 This function is due to Rob Fowler.  Given dy and dx between 2 points
 p1 and p2, we calculate a number in [0.0, 8.0) which is a monotonic
 function of the direction from A to B.
@@ -238,26 +248,23 @@ static inline
 h2lin_float_t
 fowler_angle(point2d_t p1, point2d_t p2) {
 	point2d_t d = point2d_sub_ts(p2, p1);
+	point2d_t dabs = point2d_abs(d);
 
-	h2lin_float_t adx, ady;	/* Absolute Values of Dx and Dy */
 	int code;					/* Angular Region Classification Code */
 
-	adx = (d.x < 0) ? -d.x : d.x;		/* Compute the absolute values. */
-	ady = (d.y < 0) ? -d.y : d.y;
-
-	code = (adx < ady) ? 1 : 0;
+	code = (dabs.x < dabs.y) ? 1 : 0;
 	if (d.x < 0)  code += 2;
 	if (d.y < 0)  code += 4;
 
 	switch (code) {
-		case 0: return (d.x==0) ? 0 : ady/adx;  /* [  0, 45] */
-		case 1: return ((h2lin_float_t)2 - (adx/ady));      /* ( 45, 90] */
-		case 3: return ((h2lin_float_t)2 + (adx/ady));      /* ( 90,135) */
-		case 2: return ((h2lin_float_t)4 - (ady/adx));      /* [135,180] */
-		case 6: return ((h2lin_float_t)4 + (ady/adx));      /* (180,225] */
-		case 7: return ((h2lin_float_t)6 - (adx/ady));      /* (225,270) */
-		case 5: return ((h2lin_float_t)6 + (adx/ady));      /* [270,315) */
-		case 4: return ((h2lin_float_t)8 - (ady/adx));      /* [315,360) */
+		case 0: return (d.x==0) ? 0 :       dabs.y/dabs.x;        /* [  0, 45] */
+		case 1: return ((h2lin_float_t)2 - (dabs.x/dabs.y));      /* ( 45, 90] */
+		case 3: return ((h2lin_float_t)2 + (dabs.x/dabs.y));      /* ( 90,135) */
+		case 2: return ((h2lin_float_t)4 - (dabs.y/dabs.x));      /* [135,180] */
+		case 6: return ((h2lin_float_t)4 + (dabs.y/dabs.x));      /* (180,225] */
+		case 7: return ((h2lin_float_t)6 - (dabs.x/dabs.y));      /* (225,270) */
+		case 5: return ((h2lin_float_t)6 + (dabs.x/dabs.y));      /* [270,315) */
+		case 4: return ((h2lin_float_t)8 - (dabs.y/dabs.x));      /* [315,360) */
 
 		default: return -1; /* hardcore fail */
 	}

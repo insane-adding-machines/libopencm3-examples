@@ -237,12 +237,57 @@ typedef void(*h2bez_draw_t) (point2d_t p1, point2d_t p2);
 // TODO resolution x/y instead of num_segments
 static inline
 void
-h2_bezier_draw_cubic(h2bez_draw_t draw, uint32_t num_segments, point2d_t p1, point2d_t p2, point2d_t p3, point2d_t p4) {
-	if ( point2d_dist(p1,p4) < h2bez_float_EPSILON*100) {
+h2_bezier_draw_cubic(h2bez_draw_t draw, uint32_t num_segments, point2d_t p0, point2d_t p1, point2d_t p2, point2d_t p3) {
+	/* draw a single point.. */
+	if ( point2d_dist(p0,p1) < h2bez_float_EPSILON*100) { // TODO use better min-value.. (eg 1)
 		draw(p1,p1);
 		return;
 	}
 
+	point2d_t q0,q1,q2;
+	point2d_t r0,r1;
+
+	point2d_t b0,b1;
+	point2d_t p10ns,p21ns,p32ns;
+
+	b1 = p0;
+
+	h2bez_float_t nsf = (h2bez_float_t)num_segments;
+
+	p10ns = point2d_div_t(point2d_sub_ts(p1,p0), nsf);
+	p21ns = point2d_div_t(point2d_sub_ts(p2,p1), nsf);
+	p32ns = point2d_div_t(point2d_sub_ts(p3,p2), nsf);
+
+	for (uint32_t n=1; n < num_segments; n++) {
+		b0 = b1;
+
+		h2bez_float_t nf = (h2bez_float_t)n;
+
+		h2bez_float_t nt = nf/nsf;
+
+		q0 = point2d_add_ts(p0, point2d_mul_t(p10ns, nf));
+		q1 = point2d_add_ts(p1, point2d_mul_t(p21ns, nf));
+		q2 = point2d_add_ts(p2, point2d_mul_t(p32ns, nf));
+
+		r0 = point2d_add_ts(q0, point2d_mul_t(point2d_sub_ts(q1,q0), nt));
+		r1 = point2d_add_ts(q1, point2d_mul_t(point2d_sub_ts(q2,q1), nt));
+
+		b1 = point2d_add_ts(r0, point2d_mul_t(point2d_sub_ts(r1,r0), nt));
+
+		draw(b0,b1);
+	}
+
+	draw(b1, p3);
+}
+
+static inline
+void
+h2_bezier_draw_cubic2(h2bez_draw_t draw, uint32_t num_segments, point2d_t p1, point2d_t p2, point2d_t p3, point2d_t p4) {
+	/* draw a single point.. */
+	if ( point2d_dist(p1,p4) < h2bez_float_EPSILON*100) { // TODO use better min-value..
+		draw(p1,p1);
+		return;
+	}
 	point2d_t ps = p1;
 	for (uint32_t i=1; i <= num_segments; ++i) {
 		h2bez_float_t t = (h2bez_float_t)i / (h2bez_float_t)num_segments;

@@ -1,7 +1,7 @@
 /*
  * This file is part of the libopencm3 project.
  * 
- * Copyright (C) 2016 ???
+ * Copyright (C) 2016 Oliver Meier <h2obrain@gmail.com>
  *
  * This library is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -33,6 +33,9 @@
 
 gfx_state_t __gfx_state;
 
+/*
+ * Make sure the surface is aligned for 32bit!
+ */
 void
 gfx_init(uint16_t *surface, int32_t width, int32_t height) {
 	*(uint16_t*)&__gfx_state.width_orig  = width;
@@ -79,13 +82,25 @@ gfx_get_surface_visible_area() {
 
 /*
  * just write a RGB565 color to each pixel in the current buffer/surface
+ * this function assumes 32bit aligned buffer!
  */
 void gfx_fill_screen(uint16_t color) {
-	uint32_t i; uint16_t *pixel_addr;
-	pixel_addr = __gfx_state.surface;
-	for (i = 0; i < __gfx_state.pixel_count; i++) {
-		*pixel_addr++ = color;
+	uint32_t color2 = (color<<16)|color;
+
+	uint32_t i; uint32_t *pixel_addr;
+	pixel_addr = (uint32_t*)__gfx_state.surface;
+	for (i = 0; i < __gfx_state.pixel_count/2; i++) {
+		*pixel_addr++ = color2;
 	}
+	if (__gfx_state.pixel_count & 1) {
+		*(__gfx_state.surface+(__gfx_state.pixel_count-1)) = color;
+	}
+
+//	uint32_t i; uint16_t *pixel_addr;
+//	pixel_addr = __gfx_state.surface;
+//	for (i = 0; i < __gfx_state.pixel_count&1; i++) {
+//		*pixel_addr++ = color;
+//	}
 }
 
 
@@ -121,10 +136,12 @@ uint16_t gfx_height(void) {
  */
 void gfx_draw_pixel(int16_t x, int16_t y, uint16_t color) {
 	uint16_t *pixel_addr;
-	if (x < __gfx_state.visible_area.x1 || x >= __gfx_state.visible_area.x2) {
-		return;
-	}
-	if (y < __gfx_state.visible_area.y1 || y >= __gfx_state.visible_area.y2) {
+	if (
+		x <  __gfx_state.visible_area.x1
+	 || x >= __gfx_state.visible_area.x2
+     || y <  __gfx_state.visible_area.y1
+	 || y >= __gfx_state.visible_area.y2
+	) {
 		return;
 	}
 
@@ -147,6 +164,297 @@ void gfx_draw_pixel(int16_t x, int16_t y, uint16_t color) {
 
 	return;
 }
+/*
+ * get a single pixel
+ */
+int32_t gfx_get_pixel(int16_t x, int16_t y) {
+	uint16_t *pixel_addr;
+	if (
+		x <  __gfx_state.visible_area.x1
+	 || x >= __gfx_state.visible_area.x2
+     || y <  __gfx_state.visible_area.y1
+	 || y >= __gfx_state.visible_area.y2
+	) {
+		return -1;
+	}
+
+	pixel_addr = __gfx_state.surface;
+	switch (__gfx_state.rotation) {
+		case GFX_ROTATION_0_DEGREES :
+			pixel_addr +=                           (x + y*__gfx_state.width_orig);
+			break;
+		case GFX_ROTATION_180_DEGREES :
+			pixel_addr += __gfx_state.pixel_count - (x + y*__gfx_state.width_orig);
+			break;
+		case GFX_ROTATION_90_DEGREES :
+			pixel_addr += __gfx_state.pixel_count - (x*__gfx_state.width_orig + (__gfx_state.width_orig-y));
+			break;
+		case GFX_ROTATION_270_DEGREES :
+			pixel_addr +=                           (x*__gfx_state.width_orig + (__gfx_state.width_orig-y));
+			break;
+	}
+	return *pixel_addr;
+}
+
+typedef struct {
+	int16_t ud_dir;
+	int16_t x0,x1;
+	int16_t y; // actually y-ud_dir..
+} fill_segment_t;
+
+//#define SHOW_FILLING
+#ifdef SHOW_FILLING
+#include "lcd_ili9341.h"
+#include "clock.h"
+#include <assert.h>
+#endif
+
+// warning! this function might be very slow and fail :)
+int gfx_flood_fill4(int16_t x, int16_t y, uint16_t old_color, uint16_t new_color, uint8_t fill_segment_buf[], size_t fill_segment_buf_size) {
+	if (old_color == new_color) return 0;
+
+//	if (gfx_get_pixel(x, y) != old_color) return 0;
+
+	int16_t sx,sy;
+
+	int16_t ud_dir_init = 1;
+	int16_t ud_dir = 1;
+
+	size_t fill_segment_queue_size = fill_segment_buf_size/sizeof(fill_segment_t);
+	fill_segment_t *fill_segment_queue = (fill_segment_t *)fill_segment_buf;
+	size_t fill_segment_queue_count = 0, fill_segment_queue_count_total = 0;
+	int fill_segment_queue_overflows = 0;
+
+	int16_t x0, x1, x0l, x1l, x0ll, x1ll;
+
+	bool pixel_drawn = false;
+
+	sx=x;
+	sy=y;
+
+	/* process first line */
+	x--; // x is always increased first!
+	while (gfx_get_pixel(++x, y) == old_color) {
+		gfx_draw_pixel(x, y, new_color);
+		pixel_drawn = true;
+	}
+	x1l = x1ll = x-1;
+	x  = sx;
+	while (gfx_get_pixel(--x, y) == old_color) {
+		gfx_draw_pixel(x, y, new_color);
+		pixel_drawn = true;
+	}
+	x0l = x0ll = x+1;
+
+#ifdef SHOW_FILLING
+	ltdc_set_fbuffer_address(LTDC_LAYER_2, __gfx_state.surface);
+#endif
+
+	while (pixel_drawn) {
+		pixel_drawn = false;
+
+#ifdef SHOW_FILLING
+		ltdc_reload(LTDC_SRCR_RELOAD_VBR);
+		milli_sleep(50);
+#endif
+		y += ud_dir;
+
+		sx  = (x0l+x1l)/2;
+
+		/** middle to right */
+		x  = sx-1;
+		/* fill additional adjacent old-colored pixels */
+		while (gfx_get_pixel(++x, y) == old_color) {
+			gfx_draw_pixel(x, y,(uint16_t)(((uint32_t)new_color*255)%UINT16_MAX));
+			pixel_drawn = true;
+		}
+		x1 = x-1;
+		/* check if x1 is bigger compared to the last line */
+		if (x1 > x1l+1) {
+			if (fill_segment_queue_count<fill_segment_queue_size) {
+				fill_segment_queue[fill_segment_queue_count++] =
+						(fill_segment_t) {
+							.ud_dir = -ud_dir,
+							.x0     = x1l,
+							.x1     = x1,
+							.y      = y
+						};
+			} else {
+				fill_segment_queue_overflows++;
+			}
+		} else {
+			/* fill all lastline-adjacent old-colored pixels */
+			bool adjacent_pixel_drawn = false;
+			int16_t xa0, xa1;
+			while ((++x < x1l) || adjacent_pixel_drawn) {
+				if (gfx_get_pixel(x, y) == old_color) {
+					gfx_draw_pixel(x, y, new_color);
+					if (!adjacent_pixel_drawn) {
+						adjacent_pixel_drawn = true;
+						xa0 = x;
+					}
+				} else
+				if (adjacent_pixel_drawn) {
+					adjacent_pixel_drawn = false;
+					xa1 = x;
+					if (fill_segment_queue_count<fill_segment_queue_size) {
+						fill_segment_queue[fill_segment_queue_count++] =
+								(fill_segment_t) {
+									.ud_dir = ud_dir,
+									.x0     = xa0-0,
+									.x1     = xa1-1,
+									.y      = y
+								};
+					} else {
+						fill_segment_queue_overflows++;
+					}
+				}
+			}
+		}
+		x1l = x1;
+
+
+		/** middle-1 to left */
+		x  = sx;
+		if (sx>x0l) {
+			/* fill additional adjacent old-colored pixels */
+			while (gfx_get_pixel(--x, y) == old_color) {
+				gfx_draw_pixel(x, y, new_color);
+				pixel_drawn = true;
+			}
+			x0 = x+1;
+		} else {
+			x0 = sx;
+			x--;
+		}
+		/* check if x0 is smaller compared to the last line */
+		if (x0 < x0l-1) {
+			if (fill_segment_queue_count<fill_segment_queue_size) {
+				fill_segment_queue[fill_segment_queue_count++] =
+						(fill_segment_t) {
+							.ud_dir = -ud_dir,
+							.x0     = x0,
+							.x1     = x0l,
+							.y      = y
+						};
+			} else {
+				fill_segment_queue_overflows++;
+			}
+		} else {
+			/* fill all lastline-adjacent old-colored pixels */
+			bool adjacent_pixel_drawn = false;
+			int16_t xa0, xa1;
+			while ((--x > x0l) || adjacent_pixel_drawn) {
+				if (gfx_get_pixel(x, y) == old_color) {
+					gfx_draw_pixel(x, y, new_color);
+					if (!adjacent_pixel_drawn) {
+						adjacent_pixel_drawn = true;
+						xa1 = x;
+					}
+				} else
+				if (adjacent_pixel_drawn) {
+					adjacent_pixel_drawn = false;
+					xa0 = x;
+					if (fill_segment_queue_count<fill_segment_queue_size) {
+						fill_segment_queue[fill_segment_queue_count++] =
+								(fill_segment_t) {
+									.ud_dir = ud_dir,
+									.x0     = xa0+1,
+									.x1     = xa1+0,
+									.y      = y
+								};
+					} else {
+						fill_segment_queue_overflows++;
+					}
+				}
+			}
+		}
+		x0l = x0;
+
+
+		/** no pixel draw, check if we're already filling upwards */
+		if (!pixel_drawn) {
+			if (ud_dir == ud_dir_init) {
+				pixel_drawn = true;
+				ud_dir = -1;
+				y = sy;
+				x0l = x0ll;
+				x1l = x1ll;
+			} else {
+				ud_dir_init = 2; // filling saved segments
+
+				fill_segment_queue_count_total++;
+
+				if (fill_segment_queue_count) {
+					fill_segment_queue_count--;
+					ud_dir = fill_segment_queue[fill_segment_queue_count].ud_dir;
+					x0l = fill_segment_queue[fill_segment_queue_count].x0;
+					x1l = fill_segment_queue[fill_segment_queue_count].x1;
+//					sx  = (x0l+x1l)/2;
+					y   = fill_segment_queue[fill_segment_queue_count].y;
+					pixel_drawn = true;
+
+#ifdef SHOW_FILLING
+					assert(x0l<=x1l);
+#endif
+				}
+			}
+		}
+	}
+
+#ifdef SHOW_FILLING
+	milli_sleep(5000);
+#endif
+
+	if (fill_segment_queue_overflows!=0) return -fill_segment_queue_overflows;
+	return (int)fill_segment_queue_count_total;
+}
+
+//// warning! this function might be very slow and fail :)
+//void gfx_flood_fill4(int16_t x, int16_t y, uint16_t old_color, uint16_t new_color) {
+//	uint16_t cc;
+//	int16_t sx,sy;
+//
+//	if (gfx_get_pixel(x, y) != old_color) return;
+//
+//	sx=x;
+//	sy=y;
+//
+//	int16_t lr_dir = 1;
+//	int16_t ud_dir = 1;
+//	while (1) {
+//		gfx_draw_pixel(x, y, new_color);
+//		x += lr_dir;
+//		if (gfx_get_pixel(x, y) != old_color) {
+//			if (lr_dir ==  1) {
+//				lr_dir  = -1;
+//				x = sx - 1;
+//				if (gfx_get_pixel(x, y) != old_color) {
+//					goto UPDATE_Y;
+//				}
+//			} else {
+//UPDATE_Y :
+//				lr_dir = 1;
+//				x  = sx;
+//				y += ud_dir;
+//				if (gfx_get_pixel(x, y) != old_color) {
+//					if (ud_dir == 1) {
+//						ud_dir  = -1;
+//						y = sy - 1;
+//						if (gfx_get_pixel(x, y) != old_color) {
+//							goto FINISHED;
+//						}
+//					} else {
+//FINISHED :
+//						// TODO not really finished here!! collect infos for "cut lines"
+//						break;
+//					}
+//				}
+//			}
+//		}
+//	}
+//	return;
+//}
 
 
 // Bresenham's algorithm - thx wikpedia
@@ -195,7 +503,7 @@ void gfx_draw_hline(int16_t x, int16_t y, int16_t length, uint16_t color) {
 		length = -length;
 		x     -=  length;
 	}
-	while (length-- != 0) {
+	while (length--) {
 		gfx_draw_pixel(x++,y,color);
 	}
 }
@@ -204,7 +512,7 @@ void gfx_draw_vline(int16_t x, int16_t y, int16_t length, uint16_t color) {
 		length = -length;
 		y     -=  length;
 	}
-	while (length-- != 0) {
+	while (length--) {
 		gfx_draw_pixel(x,y++,color);
 	}
 }
@@ -234,16 +542,12 @@ void gfx_draw_rect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color) {
 	}
 }
 
-void gfx_fill_rect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color) {
-	int16_t x_cp,w_cp;
-	while (h--) {
-		x_cp=x;
-		w_cp=w;
-		while (w_cp--) {
-			gfx_draw_pixel(x_cp,y,color);
-			x_cp++;
-		}
-		y++;
+void gfx_fill_rect(int16_t x, int16_t y, int16_t w, int16_t h,
+			    uint16_t fg) {
+
+	int16_t i;
+	for (i=x; i<x+w; i++) {
+		gfx_draw_vline(i, y, h, fg);
 	}
 }
 
@@ -263,7 +567,6 @@ void gfx_draw_raw_rbg565_buffer(int16_t x, int16_t y, uint16_t w, uint16_t h, co
 		y++;
 	}
 }
-
 
 // Draw a circle outline
 void gfx_draw_circle(int16_t x0, int16_t y0, int16_t r, uint16_t fg) {
@@ -530,33 +833,76 @@ void gfx_puts2(int16_t x, int16_t y, const char *s, const font_t *font, uint16_t
 }
 /* this is not utf8 right now.. */
 void gfx_puts3(int16_t x, int16_t y, const char *s, const gfx_alignment_t alignment) {
-	if (!__gfx_state.font) return;
-	if (!(alignment&GFX_ALIGNMENT_RIGHT)) {
-		gfx_set_cursor(x,y);
-		gfx_puts(s);
-		return;
-	}
-
-	const char *s_end = utf8_find_character_in_string(0,s,s+1024);
+	const char *s_end;
 	const char *next_nl,*last_nl;
 
-	last_nl = utf8_find_character_in_string('\n', s,s_end);
-	if (!last_nl) {
-		gfx_set_cursor(x-utf8_find_pointer_diff(s,s_end)*__gfx_state.font->charwidth,y);
-		gfx_puts(s);
-		return;
-	}
+	switch (alignment) {
+		case GFX_ALIGNMENT_TOP    :
+		case GFX_ALIGNMENT_BOTTOM :
+		case GFX_ALIGNMENT_LEFT   :
+			gfx_set_cursor(x,y);
+			gfx_puts(s);
+			return;
 
-	uint32_t line_count = 0;
-	while (s<s_end) {
-		next_nl=utf8_find_character_in_string('\n',s,s_end);
-		gfx_set_cursor(x-utf8_find_pointer_diff(s,next_nl)*__gfx_state.font->charwidth,y+line_count*__gfx_state.font->lineheight);
-		do {
-			int32_t value;
-			s = utf8_read_value(s,&value);
-			gfx_write(value);
-		} while (s!=next_nl);
-		s++;line_count++;
+		case GFX_ALIGNMENT_RIGHT  :
+			s_end = utf8_find_character_in_string(0,s,s+1024);
+			next_nl = utf8_find_character_in_string('\n', s,s_end);
+			if (!next_nl) {
+				gfx_set_cursor(x-utf8_find_pointer_diff(s,s_end)*__gfx_state.font->charwidth,y);
+				gfx_puts(s);
+			} else {
+				uint32_t line_count = 0;
+				while (s<s_end) {
+					next_nl=utf8_find_character_in_string('\n',s,s_end);
+					gfx_set_cursor(x-utf8_find_pointer_diff(s,next_nl)*__gfx_state.font->charwidth,y+line_count*__gfx_state.font->lineheight);
+					do {
+						int32_t value;
+						s = utf8_read_value(s,&value);
+						gfx_write(value);
+					} while (s!=next_nl);
+					s++;line_count++;
+				}
+			}
+			break;
+
+		case GFX_ALIGNMENT_CENTER :
+			s_end = utf8_find_character_in_string(0,s,s+1024);
+			next_nl = utf8_find_character_in_string('\n', s,s_end);
+			if (!next_nl) {
+				gfx_set_cursor(x-utf8_find_pointer_diff(s,s_end)*__gfx_state.font->charwidth/2,y);
+//				gfx_set_cursor(x-(utf8_find_pointer_diff(s,s_end)/2)*__gfx_state.font->charwidth,y);
+				gfx_puts(s);
+			} else {
+				// find longest line
+				uint32_t line_length, longest_line;
+				longest_line = utf8_find_pointer_diff(s,next_nl);
+				last_nl = next_nl+1;
+				while (last_nl<s_end) {
+					next_nl=utf8_find_character_in_string('\n',last_nl,s_end);
+					line_length = utf8_find_pointer_diff(last_nl,next_nl);
+					if (longest_line < line_length) longest_line = line_length;
+					last_nl = next_nl+1;
+				}
+
+				// print lines
+				uint32_t line_count = 0;
+				while (s<s_end) {
+					next_nl=utf8_find_character_in_string('\n',s,s_end);
+					gfx_set_cursor(
+							x
+							- (longest_line*__gfx_state.font->charwidth)
+							+ (longest_line-utf8_find_pointer_diff(s,next_nl))*__gfx_state.font->charwidth/2,
+							y
+							+ line_count*__gfx_state.font->lineheight);
+					do {
+						int32_t value;
+						s = utf8_read_value(s,&value);
+						gfx_write(value);
+					} while (s!=next_nl);
+					s++;line_count++;
+				}
+			}
+			break;
 	}
 }
 
@@ -611,6 +957,9 @@ void gfx_set_cursor(int16_t x, int16_t y) {
 void gfx_set_font_scale(uint8_t s) {
 	__gfx_state.fontscale = (s > 0) ? s : 1;
 }
+uint8_t gfx_get_font_scale() {
+	return __gfx_state.fontscale;
+}
 
 void gfx_set_text_color(uint16_t col) {
 	__gfx_state.textcolor   = col;
@@ -619,7 +968,7 @@ void gfx_set_font(const font_t *font) {
 	__gfx_state.font = font;
 }
 
-void gfx_set_text_wrap(uint8_t w) {
+void gfx_set_text_wrap(bool w) {
 	__gfx_state.wrap = w;
 }
 
@@ -634,12 +983,35 @@ gfx_get_line_height() {
 	return __gfx_state.font->lineheight*__gfx_state.fontscale;
 }
 uint16_t
-gfx_get_string_width(char *s) {
-	return strlen(s) * gfx_get_char_width();
-}
+gfx_get_string_width(const char *s) {
+	uint16_t cnt,cnt_max;
+	cnt = cnt_max = 0;
+	while (1) {
+		if ((*s == 0) || (*s == '\n') || (*s == '\r')) {
+			if (cnt_max < cnt)
+				cnt_max = cnt;
 
+			if (*s == 0) break;
+			cnt = 0;
+		} else {
+			cnt++;
+		}
+		s++;
+	}
+	return cnt_max * gfx_get_char_width();
+}
+uint16_t
+gfx_get_string_height(const char *s) {
+	uint16_t cnt;
+	cnt = 1;
+	while (*s) {
+		if (*s=='\n') cnt++;
+		s++;
+	}
+	return cnt * gfx_get_line_height();
+}
 uint8_t
-gfx_get_font_scale() {
+gfx_get_text_size() {
 	return __gfx_state.fontscale;
 }
 uint16_t

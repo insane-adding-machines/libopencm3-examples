@@ -17,6 +17,7 @@
  * along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <stdio.h>
 #include <libopencm3/cm3/nvic.h>
 #include <stdbool.h>
 #include "clock.h"
@@ -30,87 +31,104 @@
 
 #include "h2_bezier.h"
 
-uint16_t color = GFX_COLOR_GREEN;
+uint16_t color = GFX_COLOR_BLACK;
 void draw_segment(point2d_t p1, point2d_t p2);
 void draw_segment(point2d_t p1, point2d_t p2) {
 	gfx_draw_line((int16_t)p1.x,(int16_t)p1.y, (int16_t)p2.x,(int16_t)p2.y, color);
 }
-static inline void draw_bezier(void) {
+point2d_t p[] = {
+//		{ 161, 191 },
+//		{ 132, 101 },
+//		{ 209, 156 },
+//		{ 113, 156 },
+//		{ 190, 101 },
+//
+//		{ 161, 191 },
+//		{ 132, 101 },
+//		{ 209, 156 },
+//		{ 113, 156 },
+//		{ 190, 101 },
+//
+//		{ 161, 191 },
+//		{ 132, 101 },
+//		{ 209, 156 },
+//		{ 113, 156 },
+//		{ 190, 101 },
+//
+//		{ 161, 191 },
+
+
+		{ 161, 166 },
+		{ 146, 121 },
+		{ 185, 149 },
+		{ 137, 149 },
+		{ 176, 121 },
+
+		{ 161, 166 },
+		{ 146, 121 },
+		{ 185, 149 },
+		{ 137, 149 },
+		{ 176, 121 },
+
+		{ 161, 166 },
+		{ 146, 121 },
+		{ 185, 149 },
+		{ 137, 149 },
+		{ 176, 121 },
+
+		{ 161, 166 },
+
+};
+uint32_t num_points;
+uint32_t num_ipoints;
+static inline void init_bezier(void) {
 	uint32_t i;
-	point2d_t p[] = {
-			{ 161, 191 },
-			{ 132, 101 },
-			{ 209, 156 },
-			{ 113, 156 },
-			{ 190, 101 },
 
-			{ 161, 191 },
-			{ 132, 101 },
-			{ 209, 156 },
-			{ 113, 156 },
-			{ 190, 101 },
-
-			{ 161, 191 },
-			{ 132, 101 },
-			{ 209, 156 },
-			{ 113, 156 },
-			{ 190, 101 },
-
-			{ 161, 191 },
-
-
-//			{ 161, 166 },
-//			{ 146, 121 },
-//			{ 185, 149 },
-//			{ 137, 149 },
-//			{ 176, 121 },
-//
-//			{ 161, 166 },
-//			{ 146, 121 },
-//			{ 185, 149 },
-//			{ 137, 149 },
-//			{ 176, 121 },
-//
-//			{ 161, 166 },
-//			{ 146, 121 },
-//			{ 185, 149 },
-//			{ 137, 149 },
-//			{ 176, 121 },
-//
-//			{ 161, 166 },
-
-	};
-	uint32_t num_points  = sizeof(p)/sizeof(p[0]);
-	uint32_t num_ipoints = h2_bezier_calculate_int_points_length(num_points);
+	num_points  = sizeof(p)/sizeof(p[0]);
+	num_ipoints = h2_bezier_calculate_int_points_length(num_points);
 
 	color = GFX_COLOR_GREEN;
 	for (i=0; i<num_points-1; i++) {
 		draw_segment(p[i],p[i+1]);
 	}
 
-	float tension = 1.0f;
-	color = GFX_COLOR_BLUE;
-	point2d_t pi1[num_ipoints];
-	for (uint32_t j=0; j<20; j++) {
-		h2_bezier_cubic(pi1, p, num_points, 0.0001f, tension);
-		for (i=0; i<num_ipoints-1; i+=3) {
-			h2_bezier_draw_cubic(draw_segment, 20, pi1[i], pi1[i+1], pi1[i+2], pi1[i+3]);
-		}
-		color += 100;
-		tension /= 1.1;
-	}
+
+//	point2d_t pi1[num_ipoints];
+//	color = GFX_COLOR_BLUE;
+//	h2_bezier_cubic(pi1, p, num_points, 1.0f, 1.0f);
+//	for (i=0; i<num_ipoints-1; i+=3) {
+//		h2_bezier_draw_cubic2(draw_segment, 10, pi1[i], pi1[i+1], pi1[i+2], pi1[i+3]);
+//	}
+//	color = GFX_COLOR_RED;
+//	h2_bezier_cubic(pi1, p, num_points, 1.0f, 1.0f);
+//	for (i=0; i<num_ipoints-1; i+=3) {
+//		h2_bezier_draw_cubic(draw_segment, 10, pi1[i], pi1[i+1], pi1[i+2], pi1[i+3]);
+//	}
+
+//	color = GFX_COLOR_BLUE;
+//	point2d_t pi1[num_ipoints];
+//	float tension = 1.0f;
+//	for (uint32_t j=0; j<20; j++) {
+//		h2_bezier_cubic(pi1, p, num_points, 0.0001f, tension);
+//		for (i=0; i<num_ipoints-1; i+=3) {
+//			h2_bezier_draw_cubic(draw_segment, 20, pi1[i], pi1[i+1], pi1[i+2], pi1[i+3]);
+//		}
+//		color += 100;
+//		tension /= 1.1;
+//	}
+
 //	h2_bezier_cubic(pi1, p, num_points, 1.0f, 1.0f);
 //	for (i=0; i<num_ipoints-1; i+=3) {
 //		h2_bezier_draw_cubic(draw_segment, 10, pi1[i], pi1[i+1], pi1[i+2], pi1[i+3]);
 //		//draw_segment(pi1[i],pi1[i+3]);
 //	}
 
-	color = GFX_COLOR_RED;
-	point2d_t pi2[num_ipoints];
-	h2_bezier_cubic_symmetric(pi2, p, num_points, 1.0f, 3.0f);
-	for (i=0; i<num_ipoints-1; i+=3) {
-		h2_bezier_draw_cubic(draw_segment, 20, pi2[i], pi2[i+1], pi2[i+2], pi2[i+3]);
-	}
+//	color = GFX_COLOR_RED;
+//	point2d_t pi2[num_ipoints];
+//	h2_bezier_cubic_symmetric(pi2, p, num_points, 1.0f, 3.0f);
+//	for (i=0; i<num_ipoints-1; i+=3) {
+//		h2_bezier_draw_cubic(draw_segment, 20, pi2[i], pi2[i+1], pi2[i+2], pi2[i+3]);
+//	}
 
 }
 
@@ -196,7 +214,7 @@ int main(void) {
 
 	/* draw bezier */
 	gfx_set_surface_visible_area(1,41, 319,239);
-	draw_bezier();
+	init_bezier();
 	gfx_set_surface_visible_area_max();
 
     ili9341_flip_layer1_buffer();
@@ -217,6 +235,14 @@ int main(void) {
     ball_create(bp++,  70,160,20,20, -.2, .6, GFX_COLOR_MAGENTA); ball_count++;
     ball_create(bp++, 250,170,20,20,  .2,-.3, GFX_COLOR_GREEN); ball_count++;
     ball_create(bp++, 212,165,20,20,  .5, .3, GFX_COLOR_BROWN); ball_count++;
+
+
+#define TENSION_MIN 0.1f
+#define TENSION_MAX 3.0f
+    h2bez_float_t tension = 1.0f;
+    h2bez_float_t tension_change = 1.1f;
+
+	color = GFX_COLOR_BLUE;
 
     while (1) {
 		uint64_t ctime   = mtime();
@@ -247,6 +273,60 @@ int main(void) {
 			ili9341_set_layer2();
 			/* clear the whole screen */
 			gfx_fill_screen(ILI9341_LAYER2_COLOR_KEY);
+
+			/* Flood fill test */
+			gfx_draw_circle(60,100,50, GFX_COLOR_GREEN);
+			gfx_draw_circle(80, 80, 6, GFX_COLOR_GREEN);
+			gfx_draw_circle(40, 80, 6, GFX_COLOR_GREEN);
+			gfx_draw_line ( 40,130, 50,120, GFX_COLOR_GREEN);
+			gfx_draw_line ( 50,120, 60,130, GFX_COLOR_GREEN);
+			gfx_draw_line ( 60,130, 70,120, GFX_COLOR_GREEN);
+			gfx_draw_line ( 70,120, 80,130, GFX_COLOR_GREEN);
+			gfx_draw_vline( 60,130, 10,     GFX_COLOR_GREEN);
+
+			gfx_draw_vline( 80, 51,10, GFX_COLOR_GREEN);
+			gfx_draw_vline( 80,140,10, GFX_COLOR_GREEN);
+			gfx_draw_vline( 40, 51,10, GFX_COLOR_GREEN);
+			gfx_draw_vline( 40,140,10, GFX_COLOR_GREEN);
+
+			uint8_t fill_segment_buf[8*50];
+			int ns = gfx_flood_fill4(60,100, ILI9341_LAYER2_COLOR_KEY, GFX_COLOR_RED, fill_segment_buf, sizeof(fill_segment_buf));
+			char buf[64];
+			sprintf(buf, "%d stored", ns);
+			gfx_puts2(50, 180, buf, &font_Tamsyn5x9b_9 , GFX_COLOR_WHITE);
+
+
+			/* redraw bezier curves (only the color changes..) */
+			tension *= tension_change;
+			if (tension <= TENSION_MIN) {
+				tension  = TENSION_MIN;
+				tension_change = 1/tension_change;
+			} else
+			if (tension >= TENSION_MAX) {
+				tension  = TENSION_MAX;
+				tension_change = 1/tension_change;
+			}
+			gfx_set_surface_visible_area(1,41, 319,239);
+			point2d_t pi1[num_ipoints];
+			h2_bezier_cubic(pi1, p, num_points, 0.0001f, tension);
+			for (uint32_t i=0; i<num_ipoints-1; i+=3) {
+				h2_bezier_draw_cubic(draw_segment, 30, pi1[i], pi1[i+1], pi1[i+2], pi1[i+3]);
+//				h2_bezier_draw_cubic2(draw_segment, 10, pi1[i], pi1[i+1], pi1[i+2], pi1[i+3]);
+			}
+			gfx_set_surface_visible_area_max();
+
+
+//			float tension = 1.0f;
+//			for (uint32_t j=0; j<10; j++) {
+//				h2_bezier_cubic(pi1, p, num_points, 0.0001f, tension);
+//				for (uint32_t i=0; i<num_ipoints-1; i+=3) {
+//					h2_bezier_draw_cubic(draw_segment, 10, pi1[i], pi1[i+1], pi1[i+2], pi1[i+3]);
+////					h2_bezier_draw_cubic2(draw_segment, 10, pi1[i], pi1[i+1], pi1[i+2], pi1[i+3]);
+//				}
+//				color += 2113;
+//				tension /= 1.2;
+//			}
+
 			/* draw balls */
 			ball_draw(balls, ball_count);
 			

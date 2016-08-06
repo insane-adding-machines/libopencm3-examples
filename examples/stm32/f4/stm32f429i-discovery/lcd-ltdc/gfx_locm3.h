@@ -49,6 +49,7 @@ typedef union {
 #define GFX_COLOR_BLACK          0x0000
 #define GFX_COLOR_DARKGREY       0x4228
 #define GFX_COLOR_GREY           0xF7DE
+#define GFX_COLOR_GREY2          0x7BEF //1111 0111 1101 1110
 #define GFX_COLOR_BLUE           0x001F
 #define GFX_COLOR_BLUE2          0x051F
 #define GFX_COLOR_RED            0xF800
@@ -58,7 +59,6 @@ typedef union {
 #define GFX_COLOR_CYAN           0x7FFF
 #define GFX_COLOR_YELLOW         0xFFE0
 #define GFX_COLOR_ORANGE         0xFBE4
-#define GFX_COLOR_GRAY           0x7BEF //1111 0111 1101 1110
 #define GFX_COLOR_BROWN          0xBBCA
 
 typedef enum {
@@ -73,6 +73,7 @@ typedef enum {
 	GFX_ALIGNMENT_BOTTOM = 1<<1,
 	GFX_ALIGNMENT_LEFT   = 1<<2,
 	GFX_ALIGNMENT_RIGHT  = 1<<3,
+	GFX_ALIGNMENT_CENTER = 1<<4,
 } gfx_alignment_t;
 
 typedef struct {
@@ -88,7 +89,7 @@ typedef struct {
     uint16_t textcolor;
     uint8_t fontscale;
     gfx_rotation_t rotation;
-    uint8_t wrap;
+    bool wrap;
     const font_t *font;
     uint16_t *surface; // current pixel buffer
 } gfx_state_t;
@@ -122,6 +123,8 @@ uint16_t gfx_width(void);
 gfx_rotation_t gfx_get_rotation(void);
 
 void gfx_draw_pixel(int16_t x, int16_t y, uint16_t color);
+int32_t gfx_get_pixel(int16_t x, int16_t y);
+int gfx_flood_fill4(int16_t x, int16_t y, uint16_t old_color, uint16_t new_color, uint8_t fill_segment_buf[], size_t fill_segment_buf_size);
 
 void gfx_draw_line(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t color);
 void gfx_draw_hline(int16_t x, int16_t y, int16_t length, uint16_t color);
@@ -146,7 +149,8 @@ void gfx_draw_char(int16_t x, int16_t y, uint32_t c, uint16_t color, uint8_t siz
 void gfx_set_cursor(int16_t x, int16_t y);
 void gfx_set_text_color(uint16_t col);
 void gfx_set_font_scale(uint8_t s);
-void gfx_set_text_wrap(uint8_t w);
+uint8_t gfx_get_font_scale(void);
+void gfx_set_text_wrap(bool w);
 void gfx_set_font(const font_t *font);
 void gfx_puts(const char *);
 void gfx_puts2(int16_t x, int16_t y, const char *s, const font_t *font, uint16_t col);
@@ -159,10 +163,12 @@ gfx_get_char_width(void);
 uint16_t
 gfx_get_line_height(void);
 uint16_t
-gfx_get_string_width(char *);
+gfx_get_string_width(const char *);
+uint16_t
+gfx_get_string_height(const char *s);
 
 uint8_t
-gfx_get_font_scale(void);
+gfx_get_text_size(void);
 uint16_t
 gfx_get_text_color(void);
 const font_t *
