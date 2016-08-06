@@ -24,6 +24,13 @@
  * the simple graphics library written by the folks at AdaFruit.
  * [Adafruit_GFX.cpp](/adafruit/Adafruit-GFX-Library/blob/master/Adafruit_GFX.cpp)
  *
+ * Graphics lib, possible history
+ * --Probably Knuth, Ada and/or Plato
+ * --WIKIPEDIA
+ * --ADAFRUIT      (?, 2013)
+ * --Chuck McManis (2013, 2014)
+ * --Tilen Majerle (2014)
+ * --Oliver Meier  (2014+)
  */
 
 
