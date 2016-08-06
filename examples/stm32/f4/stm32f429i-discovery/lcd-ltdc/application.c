@@ -237,7 +237,7 @@ int main(void) {
     ball_create(bp++, 212,165,20,20,  .5, .3, GFX_COLOR_BROWN); ball_count++;
 
 
-#define TENSION_MIN 0.1f
+#define TENSION_MIN 0.15f
 #define TENSION_MAX 3.0f
     h2bez_float_t tension = 1.0f;
     h2bez_float_t tension_change = 1.1f;
@@ -282,18 +282,20 @@ int main(void) {
 			gfx_draw_line ( 50,120, 60,130, GFX_COLOR_GREEN);
 			gfx_draw_line ( 60,130, 70,120, GFX_COLOR_GREEN);
 			gfx_draw_line ( 70,120, 80,130, GFX_COLOR_GREEN);
-			gfx_draw_vline( 60,130, 10,     GFX_COLOR_GREEN);
+			gfx_draw_vline( 60,130, 20,     GFX_COLOR_GREEN);
 
 			gfx_draw_vline( 80, 51,10, GFX_COLOR_GREEN);
 			gfx_draw_vline( 80,140,10, GFX_COLOR_GREEN);
 			gfx_draw_vline( 40, 51,10, GFX_COLOR_GREEN);
 			gfx_draw_vline( 40,140,10, GFX_COLOR_GREEN);
 
+			gfx_set_surface_visible_area(15,55, 105,145);
 			uint8_t fill_segment_buf[8*50];
 			int ns = gfx_flood_fill4(60,100, ILI9341_LAYER2_COLOR_KEY, GFX_COLOR_RED, fill_segment_buf, sizeof(fill_segment_buf));
 			char buf[64];
 			sprintf(buf, "%d stored", ns);
 			gfx_puts2(50, 180, buf, &font_Tamsyn5x9b_9 , GFX_COLOR_WHITE);
+			gfx_set_surface_visible_area_max();
 
 
 			/* redraw bezier curves (only the color changes..) */

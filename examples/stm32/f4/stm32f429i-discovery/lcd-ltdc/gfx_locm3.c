@@ -130,12 +130,31 @@ uint16_t gfx_height(void) {
 }
 
 
+static inline uint16_t *gfx_get_pixel_address(int16_t x, int16_t y) {
+	uint16_t *pixel_addr;
+	pixel_addr = __gfx_state.surface;
+	switch (__gfx_state.rotation) {
+		case GFX_ROTATION_0_DEGREES :
+			pixel_addr +=                           (x + y*__gfx_state.width_orig);
+			break;
+		case GFX_ROTATION_180_DEGREES :
+			pixel_addr += __gfx_state.pixel_count - (x + y*__gfx_state.width_orig);
+			break;
+		case GFX_ROTATION_90_DEGREES :
+			pixel_addr += __gfx_state.pixel_count - (x*__gfx_state.width_orig + (__gfx_state.width_orig-y));
+			break;
+		case GFX_ROTATION_270_DEGREES :
+			pixel_addr +=                           (x*__gfx_state.width_orig + (__gfx_state.width_orig-y));
+			break;
+	}
+	return pixel_addr;
+}
+
 /*
  * draw a single pixel
  * changes buffer addressing (surface) according to orientation
  */
 void gfx_draw_pixel(int16_t x, int16_t y, uint16_t color) {
-	uint16_t *pixel_addr;
 	if (
 		x <  __gfx_state.visible_area.x1
 	 || x >= __gfx_state.visible_area.x2
@@ -145,30 +164,15 @@ void gfx_draw_pixel(int16_t x, int16_t y, uint16_t color) {
 		return;
 	}
 
-	pixel_addr = __gfx_state.surface;
-	switch (__gfx_state.rotation) {
-		case GFX_ROTATION_0_DEGREES :
-			pixel_addr +=                           (x + y*__gfx_state.width_orig);
-			break;
-		case GFX_ROTATION_180_DEGREES :
-			pixel_addr += __gfx_state.pixel_count - (x + y*__gfx_state.width_orig);
-			break;
-		case GFX_ROTATION_90_DEGREES :
-			pixel_addr += __gfx_state.pixel_count - (x*__gfx_state.width_orig + (__gfx_state.width_orig-y));
-			break;
-		case GFX_ROTATION_270_DEGREES :
-			pixel_addr +=                           (x*__gfx_state.width_orig + (__gfx_state.width_orig-y));
-			break;
-	}
-	*pixel_addr = color;
+	*gfx_get_pixel_address(x, y) = color;
 
 	return;
 }
+
 /*
  * get a single pixel
  */
 int32_t gfx_get_pixel(int16_t x, int16_t y) {
-	uint16_t *pixel_addr;
 	if (
 		x <  __gfx_state.visible_area.x1
 	 || x >= __gfx_state.visible_area.x2
@@ -178,22 +182,7 @@ int32_t gfx_get_pixel(int16_t x, int16_t y) {
 		return -1;
 	}
 
-	pixel_addr = __gfx_state.surface;
-	switch (__gfx_state.rotation) {
-		case GFX_ROTATION_0_DEGREES :
-			pixel_addr +=                           (x + y*__gfx_state.width_orig);
-			break;
-		case GFX_ROTATION_180_DEGREES :
-			pixel_addr += __gfx_state.pixel_count - (x + y*__gfx_state.width_orig);
-			break;
-		case GFX_ROTATION_90_DEGREES :
-			pixel_addr += __gfx_state.pixel_count - (x*__gfx_state.width_orig + (__gfx_state.width_orig-y));
-			break;
-		case GFX_ROTATION_270_DEGREES :
-			pixel_addr +=                           (x*__gfx_state.width_orig + (__gfx_state.width_orig-y));
-			break;
-	}
-	return *pixel_addr;
+	return *gfx_get_pixel_address(x, y);
 }
 
 typedef struct {
@@ -265,7 +254,8 @@ int gfx_flood_fill4(int16_t x, int16_t y, uint16_t old_color, uint16_t new_color
 		x  = sx-1;
 		/* fill additional adjacent old-colored pixels */
 		while (gfx_get_pixel(++x, y) == old_color) {
-			gfx_draw_pixel(x, y,(uint16_t)(((uint32_t)new_color*255)%UINT16_MAX));
+//			gfx_draw_pixel(x, y,(uint16_t)(((uint32_t)new_color*255)%UINT16_MAX));
+			gfx_draw_pixel(x, y, new_color);
 			pixel_drawn = true;
 		}
 		x1 = x-1;
@@ -409,52 +399,6 @@ int gfx_flood_fill4(int16_t x, int16_t y, uint16_t old_color, uint16_t new_color
 	if (fill_segment_queue_overflows!=0) return -fill_segment_queue_overflows;
 	return (int)fill_segment_queue_count_total;
 }
-
-//// warning! this function might be very slow and fail :)
-//void gfx_flood_fill4(int16_t x, int16_t y, uint16_t old_color, uint16_t new_color) {
-//	uint16_t cc;
-//	int16_t sx,sy;
-//
-//	if (gfx_get_pixel(x, y) != old_color) return;
-//
-//	sx=x;
-//	sy=y;
-//
-//	int16_t lr_dir = 1;
-//	int16_t ud_dir = 1;
-//	while (1) {
-//		gfx_draw_pixel(x, y, new_color);
-//		x += lr_dir;
-//		if (gfx_get_pixel(x, y) != old_color) {
-//			if (lr_dir ==  1) {
-//				lr_dir  = -1;
-//				x = sx - 1;
-//				if (gfx_get_pixel(x, y) != old_color) {
-//					goto UPDATE_Y;
-//				}
-//			} else {
-//UPDATE_Y :
-//				lr_dir = 1;
-//				x  = sx;
-//				y += ud_dir;
-//				if (gfx_get_pixel(x, y) != old_color) {
-//					if (ud_dir == 1) {
-//						ud_dir  = -1;
-//						y = sy - 1;
-//						if (gfx_get_pixel(x, y) != old_color) {
-//							goto FINISHED;
-//						}
-//					} else {
-//FINISHED :
-//						// TODO not really finished here!! collect infos for "cut lines"
-//						break;
-//					}
-//				}
-//			}
-//		}
-//	}
-//	return;
-//}
 
 
 // Bresenham's algorithm - thx wikpedia
