@@ -137,6 +137,9 @@ uint16_t gfx_height(void) {
 }
 
 
+/* GFX_GLOBAL_DISPLAY_SCALE can be  used as a zoom function while debugging code.. */
+#define GFX_GLOBAL_DISPLAY_SCALE 1
+
 static inline uint16_t *gfx_get_pixel_address(int16_t x, int16_t y) {
 	uint16_t *pixel_addr;
 	pixel_addr = __gfx_state.surface;
@@ -144,18 +147,74 @@ static inline uint16_t *gfx_get_pixel_address(int16_t x, int16_t y) {
 		case GFX_ROTATION_0_DEGREES :
 			pixel_addr +=                           (x + y*__gfx_state.width_orig);
 			break;
+		case GFX_ROTATION_270_DEGREES :
+			pixel_addr +=                           (x*__gfx_state.width_orig + __gfx_state.width_orig-y)  - GFX_GLOBAL_DISPLAY_SCALE;
+			break;
 		case GFX_ROTATION_180_DEGREES :
-			pixel_addr += __gfx_state.pixel_count - (x + y*__gfx_state.width_orig);
+			pixel_addr += __gfx_state.pixel_count - (x + (y + (GFX_GLOBAL_DISPLAY_SCALE-1))*__gfx_state.width_orig)        - GFX_GLOBAL_DISPLAY_SCALE;
 			break;
 		case GFX_ROTATION_90_DEGREES :
-			pixel_addr += __gfx_state.pixel_count - (x*__gfx_state.width_orig + (__gfx_state.width_orig-y));
-			break;
-		case GFX_ROTATION_270_DEGREES :
-			pixel_addr +=                           (x*__gfx_state.width_orig + (__gfx_state.width_orig-y));
+			pixel_addr += __gfx_state.pixel_count - ((x + (GFX_GLOBAL_DISPLAY_SCALE-1))*__gfx_state.width_orig + __gfx_state.width_orig-y);
 			break;
 	}
 	return pixel_addr;
 }
+
+
+#if GFX_GLOBAL_DISPLAY_SCALE>1
+#define GFX_GLOBAL_DISPLAY_SCALE_OFFSET_X -10
+#define GFX_GLOBAL_DISPLAY_SCALE_OFFSET_Y -50
+
+/*
+ * draw a single pixel
+ * changes buffer addressing (surface) according to orientation
+ */
+void gfx_draw_pixel(int16_t x, int16_t y, uint16_t color) {
+	x+=GFX_GLOBAL_DISPLAY_SCALE_OFFSET_X;
+	y+=GFX_GLOBAL_DISPLAY_SCALE_OFFSET_Y;
+	x*=GFX_GLOBAL_DISPLAY_SCALE;
+	y*=GFX_GLOBAL_DISPLAY_SCALE;
+	if (
+		x <  __gfx_state.visible_area.x1
+	 || x >= __gfx_state.visible_area.x2 -GFX_GLOBAL_DISPLAY_SCALE+1
+     || y <  __gfx_state.visible_area.y1
+	 || y >= __gfx_state.visible_area.y2 -GFX_GLOBAL_DISPLAY_SCALE+1
+	) {
+		return;
+	}
+
+	uint16_t *pa = gfx_get_pixel_address(x, y);
+	for (uint32_t sa=0; sa<GFX_GLOBAL_DISPLAY_SCALE; sa++) {
+		for (uint32_t sb=0; sb<GFX_GLOBAL_DISPLAY_SCALE; sb++) {
+			*(pa+sb) = color;
+		}
+		pa += __gfx_state.width_orig;
+	}
+
+	return;
+}
+
+/*
+ * get a single pixel
+ */
+int32_t gfx_get_pixel(int16_t x, int16_t y) {
+	x+=GFX_GLOBAL_DISPLAY_SCALE_OFFSET_X;
+	y+=GFX_GLOBAL_DISPLAY_SCALE_OFFSET_Y;
+	x*=GFX_GLOBAL_DISPLAY_SCALE;
+	y*=GFX_GLOBAL_DISPLAY_SCALE;
+	if (
+		x <  __gfx_state.visible_area.x1
+	 || x >= __gfx_state.visible_area.x2 -GFX_GLOBAL_DISPLAY_SCALE+1
+     || y <  __gfx_state.visible_area.y1
+	 || y >= __gfx_state.visible_area.y2 -GFX_GLOBAL_DISPLAY_SCALE+1
+	) {
+		return -1;
+	}
+
+	return *gfx_get_pixel_address(x, y);
+}
+
+#else
 
 /*
  * draw a single pixel
@@ -191,35 +250,64 @@ int32_t gfx_get_pixel(int16_t x, int16_t y) {
 
 	return *gfx_get_pixel_address(x, y);
 }
+#endif
 
 typedef struct {
 	int16_t ud_dir;
 	int16_t x0,x1;
 	int16_t y; // actually y-ud_dir..
 } fill_segment_t;
+//typedef struct {
+//	size_t count_max;
+//	size_t count_total;
+//	size_t overflows;
+//} fill_segment_queue_statistics_t;
+typedef struct {
+	size_t size;
+	fill_segment_t *data;
+	size_t count;
+	fill_segment_queue_statistics_t stats;
+} fill_segment_queue_t;
 
 //#define SHOW_FILLING
 #ifdef SHOW_FILLING
 #include "lcd_ili9341.h"
-#include "clock.h"
 #include <assert.h>
+#define CYCLES_PER_LOOP 3
+static inline void wait_cycles( uint32_t n ) {
+    uint32_t l = n/CYCLES_PER_LOOP;
+    asm volatile( "0:" "SUBS %[count], 1;" "BNE 0b;" :[count]"+r"(l) );
+}
+
+static inline void msleep_loop(uint32_t ms) {
+	wait_cycles(168000000 /1000 *ms);
+}
 #endif
 
-// warning! this function might be very slow and fail :)
-int gfx_flood_fill4(int16_t x, int16_t y, uint16_t old_color, uint16_t new_color, uint8_t fill_segment_buf[], size_t fill_segment_buf_size) {
-	if (old_color == new_color) return 0;
 
-//	if (gfx_get_pixel(x, y) != old_color) return 0;
+// warning! this function might be very slow and fail :)
+fill_segment_queue_statistics_t
+gfx_flood_fill4(int16_t x, int16_t y, uint16_t old_color, uint16_t new_color, uint8_t fill_segment_buf[], size_t fill_segment_buf_size) {
+	if (old_color == new_color) return (fill_segment_queue_statistics_t){0};
+
+	if (gfx_get_pixel(x, y) != old_color) return (fill_segment_queue_statistics_t){0};
+
+	fill_segment_queue_t queue = {
+		.size = fill_segment_buf_size/sizeof(fill_segment_t),
+		.data = (fill_segment_t *)fill_segment_buf,
+		.count = 0,
+		.stats = (fill_segment_queue_statistics_t) {
+				.count_max = 0,
+				.count_total = 0,
+				.overflows = 0,
+		}
+	};
+
 
 	int16_t sx,sy;
 
 	int16_t ud_dir_init = 1;
 	int16_t ud_dir = 1;
-
-	size_t fill_segment_queue_size = fill_segment_buf_size/sizeof(fill_segment_t);
-	fill_segment_t *fill_segment_queue = (fill_segment_t *)fill_segment_buf;
-	size_t fill_segment_queue_count = 0, fill_segment_queue_count_total = 0;
-	int fill_segment_queue_overflows = 0;
 
 	int16_t x0, x1, x0l, x1l, x0ll, x1ll;
 
@@ -243,33 +331,42 @@ int gfx_flood_fill4(int16_t x, int16_t y, uint16_t old_color, uint16_t new_color
 	x0l = x0ll = x+1;
 
 #ifdef SHOW_FILLING
-	ltdc_set_fbuffer_address(LTDC_LAYER_2, __gfx_state.surface);
+	ltdc_set_fbuffer_address(LTDC_LAYER_2, (uint32_t)__gfx_state.surface);
 #endif
 
 	while (pixel_drawn) {
 		pixel_drawn = false;
 
 #ifdef SHOW_FILLING
-		ltdc_reload(LTDC_SRCR_RELOAD_VBR);
-		milli_sleep(50);
+		if (!LTDC_SRCR_IS_RELOADING()) {
+			ltdc_reload(LTDC_SRCR_RELOAD_VBR);
+		}
 #endif
 		y += ud_dir;
 
-		sx  = (x0l+x1l)/2;
+		/* find x start point (must be between x0 and x1 of the last iteration.. */
+		sx  = x0l; //(x0l+x1l)/2;
+		while ((sx<x1l) && (gfx_get_pixel(sx, y) != old_color)) {
+			sx++;
+		}
+
+		bool sx_was_oc = gfx_get_pixel(sx, y) == old_color;
 
 		/** middle to right */
 		x  = sx-1;
 		/* fill additional adjacent old-colored pixels */
 		while (gfx_get_pixel(++x, y) == old_color) {
-//			gfx_draw_pixel(x, y,(uint16_t)(((uint32_t)new_color*255)%UINT16_MAX));
 			gfx_draw_pixel(x, y, new_color);
+#ifdef SHOW_FILLING
+		msleep_loop(1);
+#endif
 			pixel_drawn = true;
 		}
 		x1 = x-1;
 		/* check if x1 is bigger compared to the last line */
 		if (x1 > x1l+1) {
-			if (fill_segment_queue_count<fill_segment_queue_size) {
-				fill_segment_queue[fill_segment_queue_count++] =
+			if (queue.count<queue.size) {
+				queue.data[queue.count++] =
 						(fill_segment_t) {
 							.ud_dir = -ud_dir,
 							.x0     = x1l,
@@ -277,15 +374,18 @@ int gfx_flood_fill4(int16_t x, int16_t y, uint16_t old_color, uint16_t new_color
 							.y      = y
 						};
 			} else {
-				fill_segment_queue_overflows++;
+				queue.stats.overflows++;
 			}
 		} else {
 			/* fill all lastline-adjacent old-colored pixels */
 			bool adjacent_pixel_drawn = false;
 			int16_t xa0, xa1;
-			while ((++x < x1l) || adjacent_pixel_drawn) {
-				if (gfx_get_pixel(x, y) == old_color) {
+			while ((x < x1l) || adjacent_pixel_drawn) {
+				if (gfx_get_pixel(++x, y) == old_color) {
 					gfx_draw_pixel(x, y, new_color);
+#ifdef SHOW_FILLING
+		msleep_loop(1);
+#endif
 					if (!adjacent_pixel_drawn) {
 						adjacent_pixel_drawn = true;
 						xa0 = x;
@@ -293,17 +393,30 @@ int gfx_flood_fill4(int16_t x, int16_t y, uint16_t old_color, uint16_t new_color
 				} else
 				if (adjacent_pixel_drawn) {
 					adjacent_pixel_drawn = false;
-					xa1 = x;
-					if (fill_segment_queue_count<fill_segment_queue_size) {
-						fill_segment_queue[fill_segment_queue_count++] =
+					xa1 = x-1;
+					if (queue.count<queue.size) {
+						queue.data[queue.count++] =
 								(fill_segment_t) {
 									.ud_dir = ud_dir,
-									.x0     = xa0-0,
-									.x1     = xa1-1,
+									.x0     = xa0,
+									.x1     = xa1,
 									.y      = y
 								};
 					} else {
-						fill_segment_queue_overflows++;
+						queue.stats.overflows++;
+					}
+					if (xa1>x1l+1) {
+						if (queue.count<queue.size) {
+							queue.data[queue.count++] =
+									(fill_segment_t) {
+										.ud_dir = -ud_dir,
+										.x0     = x1l+1,
+										.x1     = xa1,
+										.y      = y
+									};
+						} else {
+							queue.stats.overflows++;
+						}
 					}
 				}
 			}
@@ -313,10 +426,13 @@ int gfx_flood_fill4(int16_t x, int16_t y, uint16_t old_color, uint16_t new_color
 
 		/** middle-1 to left */
 		x  = sx;
-		if (sx>x0l) {
+		if ((sx>x0l) || sx_was_oc) {
 			/* fill additional adjacent old-colored pixels */
 			while (gfx_get_pixel(--x, y) == old_color) {
 				gfx_draw_pixel(x, y, new_color);
+#ifdef SHOW_FILLING
+		msleep_loop(1);
+#endif
 				pixel_drawn = true;
 			}
 			x0 = x+1;
@@ -326,8 +442,8 @@ int gfx_flood_fill4(int16_t x, int16_t y, uint16_t old_color, uint16_t new_color
 		}
 		/* check if x0 is smaller compared to the last line */
 		if (x0 < x0l-1) {
-			if (fill_segment_queue_count<fill_segment_queue_size) {
-				fill_segment_queue[fill_segment_queue_count++] =
+			if (queue.count<queue.size) {
+				queue.data[queue.count++] =
 						(fill_segment_t) {
 							.ud_dir = -ud_dir,
 							.x0     = x0,
@@ -335,15 +451,18 @@ int gfx_flood_fill4(int16_t x, int16_t y, uint16_t old_color, uint16_t new_color
 							.y      = y
 						};
 			} else {
-				fill_segment_queue_overflows++;
+				queue.stats.overflows++;
 			}
 		} else {
 			/* fill all lastline-adjacent old-colored pixels */
 			bool adjacent_pixel_drawn = false;
 			int16_t xa0, xa1;
-			while ((--x > x0l) || adjacent_pixel_drawn) {
-				if (gfx_get_pixel(x, y) == old_color) {
+			while ((x > x0l) || adjacent_pixel_drawn) {
+				if (gfx_get_pixel(--x, y) == old_color) {
 					gfx_draw_pixel(x, y, new_color);
+#ifdef SHOW_FILLING
+		msleep_loop(1);
+#endif
 					if (!adjacent_pixel_drawn) {
 						adjacent_pixel_drawn = true;
 						xa1 = x;
@@ -351,23 +470,35 @@ int gfx_flood_fill4(int16_t x, int16_t y, uint16_t old_color, uint16_t new_color
 				} else
 				if (adjacent_pixel_drawn) {
 					adjacent_pixel_drawn = false;
-					xa0 = x;
-					if (fill_segment_queue_count<fill_segment_queue_size) {
-						fill_segment_queue[fill_segment_queue_count++] =
+					xa0 = x+1;
+					if (queue.count<queue.size) {
+						queue.data[queue.count++] =
 								(fill_segment_t) {
 									.ud_dir = ud_dir,
-									.x0     = xa0+1,
-									.x1     = xa1+0,
+									.x0     = xa0,
+									.x1     = xa1,
 									.y      = y
 								};
 					} else {
-						fill_segment_queue_overflows++;
+						queue.stats.overflows++;
+					}
+					if (xa0<x0l-1) {
+						if (queue.count<queue.size) {
+							queue.data[queue.count++] =
+									(fill_segment_t) {
+										.ud_dir = -ud_dir,
+										.x0     = xa0,
+										.x1     = x0l-1,
+										.y      = y
+									};
+						} else {
+							queue.stats.overflows++;
+						}
 					}
 				}
 			}
 		}
 		x0l = x0;
-
 
 		/** no pixel draw, check if we're already filling upwards */
 		if (!pixel_drawn) {
@@ -380,15 +511,18 @@ int gfx_flood_fill4(int16_t x, int16_t y, uint16_t old_color, uint16_t new_color
 			} else {
 				ud_dir_init = 2; // filling saved segments
 
-				fill_segment_queue_count_total++;
+				queue.stats.count_total++;
+				if (queue.stats.count_max < queue.count) {
+					queue.stats.count_max = queue.count;
+				}
 
-				if (fill_segment_queue_count) {
-					fill_segment_queue_count--;
-					ud_dir = fill_segment_queue[fill_segment_queue_count].ud_dir;
-					x0l = fill_segment_queue[fill_segment_queue_count].x0;
-					x1l = fill_segment_queue[fill_segment_queue_count].x1;
+				if (queue.count) {
+					queue.count--;
+					ud_dir = queue.data[queue.count].ud_dir;
+					x0l = queue.data[queue.count].x0;
+					x1l = queue.data[queue.count].x1;
 //					sx  = (x0l+x1l)/2;
-					y   = fill_segment_queue[fill_segment_queue_count].y;
+					y   = queue.data[queue.count].y;
 					pixel_drawn = true;
 
 #ifdef SHOW_FILLING
@@ -400,11 +534,10 @@ int gfx_flood_fill4(int16_t x, int16_t y, uint16_t old_color, uint16_t new_color
 	}
 
 #ifdef SHOW_FILLING
-	milli_sleep(5000);
+	msleep_loop(20000);
 #endif
 
-	if (fill_segment_queue_overflows!=0) return -fill_segment_queue_overflows;
-	return (int)fill_segment_queue_count_total;
+	return queue.stats;
 }
 
 

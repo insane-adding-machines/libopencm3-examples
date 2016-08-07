@@ -207,7 +207,7 @@ int main(void) {
     gfx_puts3(gfx_width()-10, 14, "Bouncing rectangular balls\nflying around in späce!", GFX_ALIGNMENT_RIGHT);
     
     /* define ball movement plane */
-    draw_plane = (plane_t) { .x = 1, .y = 40, .w = gfx_width()-2, .h = gfx_height()-40-2, .color=GFX_COLOR_DARKGREY };
+    draw_plane = (plane_t) { .x = 1, .y = 40, .w = gfx_width()-2, .h = gfx_height()-40-2, .color=GFX_COLOR_GREY2 };
 	/* draw the stage (draw_plane) */
 	gfx_draw_rect(0,39,gfx_width(),gfx_height()-40, GFX_COLOR_WHITE);
 	gfx_fill_rect(draw_plane.x, draw_plane.y, draw_plane.w, draw_plane.h, draw_plane.color);
@@ -258,14 +258,6 @@ int main(void) {
 		if (!LTDC_SRCR_IS_RELOADING() && (draw_timeout <= ctime)) {
 			/* calculate fps */
 			uint32_t fps = 1000/(ctime-draw_timeout+DISPLAY_TIMEOUT);
-			fps_s[2] = 48+fps%10;
-			fps /= 10;
-			if (fps) {
-				fps_s[1] = 48+fps%10;
-				fps /= 10;
-				if (fps)
-					fps_s[0] = 48+fps%10;
-			}
 			/* set next timeout */
 			draw_timeout = ctime+DISPLAY_TIMEOUT;
 			
@@ -275,27 +267,53 @@ int main(void) {
 			gfx_fill_screen(ILI9341_LAYER2_COLOR_KEY);
 
 			/* Flood fill test */
-			gfx_draw_circle(60,100,50, GFX_COLOR_GREEN);
-			gfx_draw_circle(80, 80, 6, GFX_COLOR_GREEN);
-			gfx_draw_circle(40, 80, 6, GFX_COLOR_GREEN);
-			gfx_draw_line ( 40,130, 50,120, GFX_COLOR_GREEN);
-			gfx_draw_line ( 50,120, 60,130, GFX_COLOR_GREEN);
-			gfx_draw_line ( 60,130, 70,120, GFX_COLOR_GREEN);
-			gfx_draw_line ( 70,120, 80,130, GFX_COLOR_GREEN);
-			gfx_draw_vline( 60,130, 20,     GFX_COLOR_GREEN);
+//			gfx_draw_rect(10,50,100,100, GFX_COLOR_GREEN2);
+			gfx_draw_circle(60,100,50, GFX_COLOR_GREEN2);
+			gfx_draw_circle(80, 80, 6, GFX_COLOR_GREEN2);
+			gfx_draw_circle(40, 80, 6, GFX_COLOR_GREEN2);
+			gfx_draw_line ( 40,130, 50,120, GFX_COLOR_GREEN2);
+			gfx_draw_line ( 50,120, 60,130, GFX_COLOR_GREEN2);
+			gfx_draw_line ( 60,130, 70,120, GFX_COLOR_GREEN2);
+			gfx_draw_line ( 70,120, 80,130, GFX_COLOR_GREEN2);
+			gfx_draw_vline( 60,130, 20, GFX_COLOR_GREEN2);
 
-			gfx_draw_vline( 80, 51,10, GFX_COLOR_GREEN);
-			gfx_draw_vline( 80,140,10, GFX_COLOR_GREEN);
-			gfx_draw_vline( 40, 51,10, GFX_COLOR_GREEN);
-			gfx_draw_vline( 40,140,10, GFX_COLOR_GREEN);
+			gfx_draw_vline( 80, 51,15, GFX_COLOR_GREEN2);
+			gfx_draw_vline( 80,140,15, GFX_COLOR_GREEN2);
+			gfx_draw_vline( 40, 51,15, GFX_COLOR_GREEN2);
+			gfx_draw_vline( 40,140,15, GFX_COLOR_GREEN2);
+//
+			gfx_draw_line ( 30,60,  80,120, GFX_COLOR_GREEN2);
+			gfx_draw_line ( 20,125, 100,80, GFX_COLOR_GREEN2);
 
-			gfx_set_surface_visible_area(15,55, 105,145);
-			uint8_t fill_segment_buf[8*50];
-			int ns = gfx_flood_fill4(60,100, ILI9341_LAYER2_COLOR_KEY, GFX_COLOR_RED, fill_segment_buf, sizeof(fill_segment_buf));
-			char buf[64];
-			sprintf(buf, "%d stored", ns);
-			gfx_puts2(50, 180, buf, &font_Tamsyn5x9b_9 , GFX_COLOR_WHITE);
-			gfx_set_surface_visible_area_max();
+			gfx_draw_rect(  20,150, 80,20,  GFX_COLOR_GREEN2);
+			gfx_draw_line ( 23,155, 97,167, GFX_COLOR_GREEN2);
+			gfx_draw_line ( 30,167, 80,150, GFX_COLOR_GREEN2);
+
+			for (uint32_t px=11; px<110; px+=4) {
+				for (uint32_t py=151; py<170; py+=2) {
+					gfx_draw_pixel(px,py,GFX_COLOR_GREEN2);
+					gfx_draw_pixel(px+2,py+1,GFX_COLOR_GREEN2);
+				}
+			}
+
+			gfx_draw_vline( 60,149,  3, ILI9341_LAYER2_COLOR_KEY);
+
+
+//			gfx_set_surface_visible_area(15,55, 105,145);
+			uint8_t fill_segment_buf[8*2048];
+			fill_segment_queue_statistics_t stats = gfx_flood_fill4(60,100, ILI9341_LAYER2_COLOR_KEY, GFX_COLOR_RED, fill_segment_buf, sizeof(fill_segment_buf));
+//			gfx_set_surface_visible_area_max();
+			char buf[1024];
+			snprintf(buf,1023,
+					"flood_fill4 test:\n"
+					" max. %5d segments\n"
+					" tot. %5d segments stored\n"
+					"      %5d segment buffer overflows",
+					stats.count_max,
+					stats.count_total,
+					stats.overflows);
+			buf[1023]=0;
+			gfx_puts2(10, 178, buf, &font_Tamsyn5x9b_9 , GFX_COLOR_WHITE);
 
 
 			/* redraw bezier curves (only the color changes..) */
@@ -312,7 +330,7 @@ int main(void) {
 			point2d_t pi1[num_ipoints];
 			h2_bezier_cubic(pi1, p, num_points, 0.0001f, tension);
 			for (uint32_t i=0; i<num_ipoints-1; i+=3) {
-				h2_bezier_draw_cubic(draw_segment, 30, pi1[i], pi1[i+1], pi1[i+2], pi1[i+3]);
+				h2_bezier_draw_cubic(draw_segment, 20, pi1[i], pi1[i+1], pi1[i+2], pi1[i+3]);
 //				h2_bezier_draw_cubic2(draw_segment, 10, pi1[i], pi1[i+1], pi1[i+2], pi1[i+3]);
 			}
 			gfx_set_surface_visible_area_max();
@@ -334,6 +352,7 @@ int main(void) {
 			
 			/* draw fps */
 			gfx_set_font_scale(1);
+			sprintf(fps_s, "%lufps", fps);
 		    gfx_puts2(
 				gfx_width() -6*font_Tamsyn5x9b_9.charwidth *gfx_get_font_scale()-3,
 				gfx_height()-font_Tamsyn5x9b_9.lineheight*gfx_get_font_scale()-3,

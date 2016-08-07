@@ -94,8 +94,14 @@ typedef struct {
     uint16_t *surface; // current pixel buffer
 } gfx_state_t;
 
-
 extern gfx_state_t __gfx_state;
+
+
+typedef struct {
+	size_t count_max;
+	size_t count_total;
+	size_t overflows;
+} fill_segment_queue_statistics_t;
 
 
 void gfx_init(uint16_t *surface, int32_t w, int32_t h);
@@ -124,7 +130,7 @@ gfx_rotation_t gfx_get_rotation(void);
 
 void gfx_draw_pixel(int16_t x, int16_t y, uint16_t color);
 int32_t gfx_get_pixel(int16_t x, int16_t y);
-int gfx_flood_fill4(int16_t x, int16_t y, uint16_t old_color, uint16_t new_color, uint8_t fill_segment_buf[], size_t fill_segment_buf_size);
+fill_segment_queue_statistics_t gfx_flood_fill4(int16_t x, int16_t y, uint16_t old_color, uint16_t new_color, uint8_t fill_segment_buf[], size_t fill_segment_buf_size);
 
 void gfx_draw_line(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t color);
 void gfx_draw_hline(int16_t x, int16_t y, int16_t length, uint16_t color);
