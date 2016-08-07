@@ -268,6 +268,7 @@ int main(void) {
 
 			/* Flood fill test */
 //			gfx_draw_rect(10,50,100,100, GFX_COLOR_GREEN2);
+			// Frowny
 			gfx_draw_circle(60,100,50, GFX_COLOR_GREEN2);
 			gfx_draw_circle(80, 80, 6, GFX_COLOR_GREEN2);
 			gfx_draw_circle(40, 80, 6, GFX_COLOR_GREEN2);
@@ -275,34 +276,36 @@ int main(void) {
 			gfx_draw_line ( 50,120, 60,130, GFX_COLOR_GREEN2);
 			gfx_draw_line ( 60,130, 70,120, GFX_COLOR_GREEN2);
 			gfx_draw_line ( 70,120, 80,130, GFX_COLOR_GREEN2);
+			// Goatee
 			gfx_draw_vline( 60,130, 20, GFX_COLOR_GREEN2);
-
+			// 4 Markers
 			gfx_draw_vline( 80, 51,15, GFX_COLOR_GREEN2);
 			gfx_draw_vline( 80,140,15, GFX_COLOR_GREEN2);
 			gfx_draw_vline( 40, 51,15, GFX_COLOR_GREEN2);
 			gfx_draw_vline( 40,140,15, GFX_COLOR_GREEN2);
-//
+			// Scars
 			gfx_draw_line ( 30,60,  80,120, GFX_COLOR_GREEN2);
 			gfx_draw_line ( 20,125, 100,80, GFX_COLOR_GREEN2);
-
+			// Fly :)
 			gfx_draw_rect(  20,150, 80,20,  GFX_COLOR_GREEN2);
 			gfx_draw_line ( 23,155, 97,167, GFX_COLOR_GREEN2);
 			gfx_draw_line ( 30,167, 80,150, GFX_COLOR_GREEN2);
-
+			// Algorithm breaking dots
 			for (uint32_t px=11; px<110; px+=4) {
 				for (uint32_t py=151; py<170; py+=2) {
 					gfx_draw_pixel(px,py,GFX_COLOR_GREEN2);
 					gfx_draw_pixel(px+2,py+1,GFX_COLOR_GREEN2);
 				}
 			}
-
+			// Head-Fly connection
 			gfx_draw_vline( 60,149,  3, ILI9341_LAYER2_COLOR_KEY);
 
-
+			// Flood fill
 //			gfx_set_surface_visible_area(15,55, 105,145);
 			uint8_t fill_segment_buf[8*2048];
 			fill_segment_queue_statistics_t stats = gfx_flood_fill4(60,100, ILI9341_LAYER2_COLOR_KEY, GFX_COLOR_RED, fill_segment_buf, sizeof(fill_segment_buf));
 //			gfx_set_surface_visible_area_max();
+			// Print statistics
 			char buf[1024];
 			snprintf(buf,1023,
 					"flood_fill4 test:\n"

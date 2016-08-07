@@ -285,6 +285,33 @@ static inline void msleep_loop(uint32_t ms) {
 #endif
 
 
+static inline void gfx_flood_fill4_add_if_found(
+		fill_segment_queue_t *queue,
+		int16_t ud_dir,
+		int16_t xa0, int16_t xa1,
+		int16_t y,
+		uint16_t old_color
+) {
+	y += ud_dir;
+	while ((xa0 <= xa1)) {
+		if (gfx_get_pixel(xa0, y) == old_color) {
+			if (queue->count<queue->size) {
+				queue->data[queue->count++] =
+						(fill_segment_t) {
+							.ud_dir = ud_dir,
+							.x0     = xa0,
+							.x1     = xa1,
+							.y      = y-ud_dir
+						};
+			} else {
+				queue->stats.overflows++;
+			}
+			return;
+		}
+		xa0++;
+	}
+}
+
 // warning! this function might be very slow and fail :)
 fill_segment_queue_statistics_t
 gfx_flood_fill4(int16_t x, int16_t y, uint16_t old_color, uint16_t new_color, uint8_t fill_segment_buf[], size_t fill_segment_buf_size) {
@@ -394,29 +421,10 @@ gfx_flood_fill4(int16_t x, int16_t y, uint16_t old_color, uint16_t new_color, ui
 				if (adjacent_pixel_drawn) {
 					adjacent_pixel_drawn = false;
 					xa1 = x-1;
-					if (queue.count<queue.size) {
-						queue.data[queue.count++] =
-								(fill_segment_t) {
-									.ud_dir = ud_dir,
-									.x0     = xa0,
-									.x1     = xa1,
-									.y      = y
-								};
-					} else {
-						queue.stats.overflows++;
-					}
+
+					gfx_flood_fill4_add_if_found(&queue, ud_dir, xa0, xa1, y, old_color);
 					if (xa1>x1l+1) {
-						if (queue.count<queue.size) {
-							queue.data[queue.count++] =
-									(fill_segment_t) {
-										.ud_dir = -ud_dir,
-										.x0     = x1l+1,
-										.x1     = xa1,
-										.y      = y
-									};
-						} else {
-							queue.stats.overflows++;
-						}
+						gfx_flood_fill4_add_if_found(&queue, -ud_dir, x1l+1, xa1, y, old_color);
 					}
 				}
 			}
@@ -471,29 +479,10 @@ gfx_flood_fill4(int16_t x, int16_t y, uint16_t old_color, uint16_t new_color, ui
 				if (adjacent_pixel_drawn) {
 					adjacent_pixel_drawn = false;
 					xa0 = x+1;
-					if (queue.count<queue.size) {
-						queue.data[queue.count++] =
-								(fill_segment_t) {
-									.ud_dir = ud_dir,
-									.x0     = xa0,
-									.x1     = xa1,
-									.y      = y
-								};
-					} else {
-						queue.stats.overflows++;
-					}
+
+					gfx_flood_fill4_add_if_found(&queue, ud_dir, xa0, xa1, y, old_color);
 					if (xa0<x0l-1) {
-						if (queue.count<queue.size) {
-							queue.data[queue.count++] =
-									(fill_segment_t) {
-										.ud_dir = -ud_dir,
-										.x0     = xa0,
-										.x1     = x0l-1,
-										.y      = y
-									};
-						} else {
-							queue.stats.overflows++;
-						}
+						gfx_flood_fill4_add_if_found(&queue, -ud_dir, xa0, x0l-1, y, old_color);
 					}
 				}
 			}
