@@ -195,8 +195,8 @@ static inline uint16_t *gfx_get_pixel_address(int16_t x, int16_t y) {
 
 
 #if GFX_GLOBAL_DISPLAY_SCALE>1
-#define GFX_GLOBAL_DISPLAY_SCALE_OFFSET_X -100
-#define GFX_GLOBAL_DISPLAY_SCALE_OFFSET_Y -70
+#define GFX_GLOBAL_DISPLAY_SCALE_OFFSET_X -10
+#define GFX_GLOBAL_DISPLAY_SCALE_OFFSET_Y -40
 
 /*
  * draw a single pixel
@@ -636,7 +636,7 @@ void gfx_draw_rect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color) {
 		x-=  h;
 	}
 	x_s = x;
-	y_e = y+h;
+	y_e = y+h-1;
 	while (w-- != 0) {
 		gfx_draw_pixel(x,y  ,color);
 		gfx_draw_pixel(x,y_e,color);

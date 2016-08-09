@@ -389,11 +389,12 @@ ball_move(balls_t *self, uint64_t time_ms) {
 static inline
 void
 ball_draw_walls(balls_t *self) {
+
 	/* draw walls and background */
 	gfx_draw_rect(
 			(int16_t)(self->walls.x1 - 1),
 			(int16_t)(self->walls.y1 - 1),
-			(int16_t)(self->walls.x2 - self->walls.x1 + 2), // why +2?
+			(int16_t)(self->walls.x2 - self->walls.x1 + 2),
 			(int16_t)(self->walls.y2 - self->walls.y1 + 2),
 			self->walls.fg_color
 		);

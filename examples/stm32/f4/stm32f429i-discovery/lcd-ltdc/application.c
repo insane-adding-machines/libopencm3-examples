@@ -406,10 +406,16 @@ static inline void draw_balls(demo_mode_t demo_mode) {
 }
 
 
+/**
+ * Re-/draw background
+ */
 static inline void draw_background(demo_mode_t demo_mode) {
     ili9341_set_layer1();
 
     gfx_fill_screen(GFX_COLOR_BLACK);
+
+    gfx_draw_rect(0, 0, gfx_width()  , 40  , GFX_COLOR_DARKGREY);
+    gfx_fill_rect(1, 1, gfx_width()-2, 40-2, ltdc_get_rgb565_from_rgb888(0x111111));
 
     gfx_set_font_scale(3);
     gfx_puts2(10, 10, "LTDC Demo", &font_Tamsyn5x9b_9 , GFX_COLOR_WHITE);
@@ -507,6 +513,10 @@ int main(void) {
     
 	ltdc_reload(LTDC_SRCR_RELOAD_VBR);
 	while (LTDC_SRCR_IS_RELOADING());
+
+    /* draw background */
+	demo_mode_t demo_mode = new_demo_mode;
+    draw_background(demo_mode);
 	
     /* init floodfill4 demo */
     init_floodfill4();
@@ -516,10 +526,6 @@ int main(void) {
 
     /* init balls demo */
 	init_balls();
-
-    /* draw background */
-	demo_mode_t demo_mode = new_demo_mode;
-    draw_background(demo_mode);
 
 
     ltdc_reload(LTDC_SRCR_RELOAD_VBR);
@@ -544,6 +550,7 @@ int main(void) {
 			ili9341_set_layer2();
 			/* clear the whole screen */
 			gfx_fill_screen(ILI9341_LAYER2_COLOR_KEY);
+
 
 			/**
 			 * Flood fill test
