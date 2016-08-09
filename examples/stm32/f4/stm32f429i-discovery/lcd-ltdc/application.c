@@ -88,7 +88,7 @@ static inline void init_floodfill4(void) {
 	gfx_draw_line ( 20,10, 70,70, GFX_COLOR_GREEN2);
 	gfx_draw_line ( 10,75, 90,30, GFX_COLOR_GREEN2);
 	/* Fly :) */
-	gfx_draw_rect(  10,100, 80,20,  GFX_COLOR_GREEN2);
+	gfx_draw_rect(  10,100, 80,21,  GFX_COLOR_GREEN2);
 	gfx_draw_line ( 13,105, 87,117, GFX_COLOR_GREEN2);
 	gfx_draw_line ( 20,117, 70,100, GFX_COLOR_GREEN2);
 //	// Worst case dots
