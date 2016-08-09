@@ -24,14 +24,15 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "h2_vector.h"
+
+#include "vector_gfx/vector.h"
 
 typedef struct {
-	h2vec_float_t x1,y1,x2,y2;
+	vector_flt_t x1,y1,x2,y2;
 	uint16_t bg_color, fg_color;
 } walls_t;
 typedef struct {
-	h2vec_float_t radius, mass;
+	vector_flt_t radius, mass;
 	point2d_t pos;
 	point2d_t vel;
 	uint16_t color;
@@ -62,7 +63,7 @@ ball_hittest(ball_t *b1, ball_t *b2) {
 
 static inline
 void
-ball_create(balls_t *self, h2vec_float_t radius, h2vec_float_t mass, point2d_t pos, point2d_t vel, uint16_t color) {
+ball_create(balls_t *self, vector_flt_t radius, vector_flt_t mass, point2d_t pos, point2d_t vel, uint16_t color) {
 	if (self->balls_count >= self->balls_size) return;
 
 	ball_t ball;
@@ -90,8 +91,8 @@ ball_create(balls_t *self, h2vec_float_t radius, h2vec_float_t mass, point2d_t p
 	bool hit = true;
 	while (hit) {
 		/* fit ball into walls */
-		ball.pos.x = (h2vec_float_t)((x+x_move) % x_range);
-		ball.pos.y = (h2vec_float_t)((y+y_move) % y_range);
+		ball.pos.x = (vector_flt_t)((x+x_move) % x_range);
+		ball.pos.y = (vector_flt_t)((y+y_move) % y_range);
 
 		ball.pos.x += self->walls.x1 + radius;
 		ball.pos.y += self->walls.y1 + radius;
@@ -134,7 +135,7 @@ typedef enum {
 } collision_type_t;
 typedef struct {
 	collision_type_t type;
-	h2vec_float_t time_to;
+	vector_flt_t time_to;
 } collision_t;
 
 static inline
@@ -142,21 +143,21 @@ collision_t
 ball_to_ball_collision_time(ball_t *b1, ball_t *b2) {
 	point2d_t vdiff = point2d_sub_ts(b2->vel, b1->vel);
 	point2d_t pdiff = point2d_sub_ts(b2->pos, b1->pos);
-	h2vec_float_t r = b1->radius + b2->radius;
+	vector_flt_t r = b1->radius + b2->radius;
 
 	/* Compute parts of quadratic formula */
 	// a = (v2x - v1x) ^ 2 + (v2y - v1y) ^ 2
-	h2vec_float_t a = point2d_dot(vdiff,vdiff);
+	vector_flt_t a = point2d_dot(vdiff,vdiff);
 	// b = 2 * ((x20 - x10) * (v2x - v1x) + (y20 - y10) * (v2y - v1y))
-	h2vec_float_t b = 2 * point2d_dot(vdiff,pdiff);
+	vector_flt_t b = 2 * point2d_dot(vdiff,pdiff);
 	// c = (x20 - x10) ^ 2 + (y20 - y10) ^ 2 - (r1 + r2) ^ 2
-	h2vec_float_t c = point2d_dot(pdiff,pdiff) - r*r;
+	vector_flt_t c = point2d_dot(pdiff,pdiff) - r*r;
 
 	// Determinant = b^2 - 4ac
-	h2vec_float_t det = b*b - 4 * a * c;
+	vector_flt_t det = b*b - 4 * a * c;
 
 	if (a != 0.) { // If a == 0 then v2x==v1x and v2y==v1y and there will be no collision
-		h2vec_float_t t = (-b - h2vec_float_sqrt(det)) / (2. * a); // Quadratic formula. t = time to collision
+		vector_flt_t t = (-b - vector_flt_sqrt(det)) / (2. * a); // Quadratic formula. t = time to collision
 		if (t>=0.) return (collision_t) { .type=COLL__BALL, .time_to=t };
 	}
 	return (collision_t) { .type=COLL__NONE };
@@ -170,7 +171,7 @@ ball_to_wall_collision_time(walls_t *walls, ball_t *b) {
 
 	/* Check for collision with wall X1 */
 	if (b->vel.x < 0.) {
-		h2vec_float_t t = (b->radius - b->pos.x + walls->x1) / b->vel.x;
+		vector_flt_t t = (b->radius - b->pos.x + walls->x1) / b->vel.x;
 //		if (t >= 0.) { // If t < 0 then ball is headed away from wall, we ignore this cas to keep the ball inside the walls..
 			collision = (collision_t) { .type=COLL__WALL_X1, .time_to=t };
 //		}
@@ -178,7 +179,7 @@ ball_to_wall_collision_time(walls_t *walls, ball_t *b) {
 
 	/* Check for collision with wall Y1 */
 	if (b->vel.y < 0.) {
-		h2vec_float_t t = (b->radius - b->pos.y + walls->y1) / b->vel.y;
+		vector_flt_t t = (b->radius - b->pos.y + walls->y1) / b->vel.y;
 //		if (t >= 0.) {
 			if (collision.type==COLL__NONE || (t < collision.time_to)) {
 				collision = (collision_t) { .type=COLL__WALL_Y1, .time_to=t };
@@ -188,7 +189,7 @@ ball_to_wall_collision_time(walls_t *walls, ball_t *b) {
 
 	/* Check for collision with wall X2 */
 	if (b->vel.x > 0.) {
-		h2vec_float_t t = (walls->x2 - b->radius - b->pos.x) / b->vel.x;
+		vector_flt_t t = (walls->x2 - b->radius - b->pos.x) / b->vel.x;
 //		if (t >= 0.) {
 			if (collision.type==COLL__NONE || (t < collision.time_to)) {
 				collision = (collision_t) { .type=COLL__WALL_X2, .time_to=t };
@@ -198,7 +199,7 @@ ball_to_wall_collision_time(walls_t *walls, ball_t *b) {
 
 	/* Check for collision with wall Y2 */
 	if (b->vel.y > 0.) {
-		h2vec_float_t t = (walls->y2 - b->radius - b->pos.y) / b->vel.y;
+		vector_flt_t t = (walls->y2 - b->radius - b->pos.y) / b->vel.y;
 //		if (t >= 0.) {
 			if (collision.type==COLL__NONE || (t < collision.time_to)) {
 				collision = (collision_t) { .type=COLL__WALL_Y2, .time_to=t };
@@ -223,20 +224,20 @@ ball_to_ball_elastic_collision(ball_t *b1, ball_t *b2) {
 	point2d_t v_ut = { -v_un.y, v_un.x }; // unit tangent vector
 
 	/* Compute scalar projections of velocities onto v_un and v_ut */
-	h2vec_float_t v1n = point2d_dot(v_un, b1->vel); // Dot product
-	h2vec_float_t v1t = point2d_dot(v_ut, b1->vel);
-	h2vec_float_t v2n = point2d_dot(v_un, b2->vel);
-	h2vec_float_t v2t = point2d_dot(v_ut, b2->vel);
+	vector_flt_t v1n = point2d_dot(v_un, b1->vel); // Dot product
+	vector_flt_t v1t = point2d_dot(v_ut, b1->vel);
+	vector_flt_t v2n = point2d_dot(v_un, b2->vel);
+	vector_flt_t v2t = point2d_dot(v_ut, b2->vel);
 
 	/* Compute new tangential velocities */
-	h2vec_float_t v1tPrime = v1t; // Note: in reality, the tangential velocities do not change after the collision
-	h2vec_float_t v2tPrime = v2t;
+	vector_flt_t v1tPrime = v1t; // Note: in reality, the tangential velocities do not change after the collision
+	vector_flt_t v2tPrime = v2t;
 
 	/* Compute new normal velocities using one-dimensional elastic collision equations in the normal direction
 	 * Division by zero avoided. See early return above.
 	 */
-	h2vec_float_t v1nPrime = (v1n * (b1->mass - b2->mass) + 2. * b2->mass * v2n) / (b1->mass + b2->mass);
-	h2vec_float_t v2nPrime = (v2n * (b2->mass - b1->mass) + 2. * b1->mass * v1n) / (b1->mass + b2->mass);
+	vector_flt_t v1nPrime = (v1n * (b1->mass - b2->mass) + 2. * b2->mass * v2n) / (b1->mass + b2->mass);
+	vector_flt_t v2nPrime = (v2n * (b2->mass - b1->mass) + 2. * b1->mass * v1n) / (b1->mass + b2->mass);
 
 	/* Compute new normal and tangential velocity vectors */
 	point2d_t v_v1nPrime = point2d_mul_t(v_un, v1nPrime); // Multiplication by a scalar
@@ -254,16 +255,16 @@ void
 ball_to_wall_elastic_collision(ball_t *b, collision_type_t type) {
 	switch (type) {
 		case COLL__WALL_X1 :
-			b->vel.x =  h2vec_float_abs(b->vel.x);
+			b->vel.x =  vector_flt_abs(b->vel.x);
 			break;
 		case COLL__WALL_Y1 :
-			b->vel.y =  h2vec_float_abs(b->vel.y);
+			b->vel.y =  vector_flt_abs(b->vel.y);
 			break;
 		case COLL__WALL_X2 :
-			b->vel.x = -h2vec_float_abs(b->vel.x);
+			b->vel.x = -vector_flt_abs(b->vel.x);
 			break;
 		case COLL__WALL_Y2 :
-			b->vel.y = -h2vec_float_abs(b->vel.y);
+			b->vel.y = -vector_flt_abs(b->vel.y);
 			break;
 
 		default :
@@ -274,7 +275,7 @@ ball_to_wall_elastic_collision(ball_t *b, collision_type_t type) {
 
 static inline
 void
-ball_advance_positions(ball_t *balls, size_t balls_count, h2vec_float_t dt) {
+ball_advance_positions(ball_t *balls, size_t balls_count, vector_flt_t dt) {
 	/* move all balls */
 	while (balls_count) {
 		balls->pos = point2d_add_ts(balls->pos, point2d_mul_t(balls->vel, dt));
@@ -341,7 +342,7 @@ ball_find_earliest_collision(balls_t *self, ball_t **b1c, ball_t **b2c) {
 static inline
 void
 ball_move(balls_t *self, uint64_t time_ms) {
-	h2vec_float_t dt = (h2vec_float_t)(time_ms-self->time_ms_0)/1000.;
+	vector_flt_t dt = (vector_flt_t)(time_ms-self->time_ms_0)/1000.;
 	self->time_ms_0 = time_ms;
 
 	collision_t last_collision = { .type=COLL__NONE };
@@ -392,8 +393,8 @@ ball_draw_walls(balls_t *self) {
 	gfx_draw_rect(
 			(int16_t)(self->walls.x1 - 1),
 			(int16_t)(self->walls.y1 - 1),
-			(int16_t)(self->walls.x2 - self->walls.x1 + 1),
-			(int16_t)(self->walls.y2 - self->walls.y1 + 1),
+			(int16_t)(self->walls.x2 - self->walls.x1 + 2), // why +2?
+			(int16_t)(self->walls.y2 - self->walls.y1 + 2),
 			self->walls.fg_color
 		);
 	gfx_fill_rect(

@@ -84,7 +84,7 @@ gfx_get_surface() {
 	}
 }
 
-void gfx_offscreen_rendering_start(uint16_t *surface, int32_t width, int32_t height) {
+void gfx_offscreen_rendering_begin(uint16_t *surface, int32_t width, int32_t height) {
 	// TODO add lock
 	if (!__gfx_state.is_offscreen_rendering) {
 //		__gfx_state_bkp = __gfx_state; ???
@@ -93,7 +93,7 @@ void gfx_offscreen_rendering_start(uint16_t *surface, int32_t width, int32_t hei
 	gfx_init(surface, width, height);
 	__gfx_state.is_offscreen_rendering = 1;
 }
-void gfx_offscreen_rendering_stop() {
+void gfx_offscreen_rendering_end() {
 	// TODO add lock
 	if (__gfx_state.is_offscreen_rendering) {
 		memcpy(&__gfx_state, &__gfx_state_bkp, sizeof(gfx_state_t));
@@ -101,11 +101,11 @@ void gfx_offscreen_rendering_stop() {
 }
 
 void
-gfx_set_surface_visible_area_max() {
+gfx_set_clipping_area_max() {
 	__gfx_state.visible_area = (visible_area_t){0,0,__gfx_state.width,__gfx_state.height};
 }
 void
-gfx_set_surface_visible_area(int16_t x1, int16_t y1, int16_t x2, int16_t y2) {
+gfx_set_clipping_area(int16_t x1, int16_t y1, int16_t x2, int16_t y2) {
 	if (x1<0)  x1=0;
 	if (y1<0)  y1=0;
 	if (x2<x1) x2=x1;
@@ -153,7 +153,7 @@ void gfx_rotate(gfx_rotation_t rotation) {
 		__gfx_state.height = __gfx_state.width_orig;
 	}
 	__gfx_state.rotation = rotation;
-	gfx_set_surface_visible_area_max();
+	gfx_set_clipping_area_max();
 }
 uint8_t gfx_get_rotation(void) {
   return __gfx_state.rotation;
@@ -168,7 +168,9 @@ uint16_t gfx_height(void) {
 }
 
 
-/* GFX_GLOBAL_DISPLAY_SCALE can be  used as a zoom function while debugging code.. */
+/* GFX_GLOBAL_DISPLAY_SCALE can be  used as a zoom function while debugging code..
+ * NOTE: This breaks offscreen rendering..
+ */
 #define GFX_GLOBAL_DISPLAY_SCALE 1
 
 static inline uint16_t *gfx_get_pixel_address(int16_t x, int16_t y) {
@@ -179,13 +181,13 @@ static inline uint16_t *gfx_get_pixel_address(int16_t x, int16_t y) {
 			pixel_addr +=                           (x + y*__gfx_state.width_orig);
 			break;
 		case GFX_ROTATION_270_DEGREES :
-			pixel_addr +=                           (x*__gfx_state.width_orig + __gfx_state.width_orig-y)  - GFX_GLOBAL_DISPLAY_SCALE;
+			pixel_addr +=                           (x*__gfx_state.width_orig + __gfx_state.width_orig - y)         - GFX_GLOBAL_DISPLAY_SCALE;
 			break;
 		case GFX_ROTATION_180_DEGREES :
-			pixel_addr += __gfx_state.pixel_count - (x + (y + (GFX_GLOBAL_DISPLAY_SCALE-1))*__gfx_state.width_orig)        - GFX_GLOBAL_DISPLAY_SCALE;
+			pixel_addr += __gfx_state.pixel_count - (x + (y + (GFX_GLOBAL_DISPLAY_SCALE-1)) * __gfx_state.width_orig) - GFX_GLOBAL_DISPLAY_SCALE;
 			break;
 		case GFX_ROTATION_90_DEGREES :
-			pixel_addr += __gfx_state.pixel_count - ((x + (GFX_GLOBAL_DISPLAY_SCALE-1))*__gfx_state.width_orig + __gfx_state.width_orig-y);
+			pixel_addr += __gfx_state.pixel_count - ((x + (GFX_GLOBAL_DISPLAY_SCALE-1))     * __gfx_state.width_orig + __gfx_state.width_orig-y);
 			break;
 	}
 	return pixel_addr;
@@ -193,8 +195,8 @@ static inline uint16_t *gfx_get_pixel_address(int16_t x, int16_t y) {
 
 
 #if GFX_GLOBAL_DISPLAY_SCALE>1
-#define GFX_GLOBAL_DISPLAY_SCALE_OFFSET_X -10
-#define GFX_GLOBAL_DISPLAY_SCALE_OFFSET_Y -50
+#define GFX_GLOBAL_DISPLAY_SCALE_OFFSET_X -100
+#define GFX_GLOBAL_DISPLAY_SCALE_OFFSET_Y -70
 
 /*
  * draw a single pixel
@@ -205,6 +207,7 @@ void gfx_draw_pixel(int16_t x, int16_t y, uint16_t color) {
 	y+=GFX_GLOBAL_DISPLAY_SCALE_OFFSET_Y;
 	x*=GFX_GLOBAL_DISPLAY_SCALE;
 	y*=GFX_GLOBAL_DISPLAY_SCALE;
+
 	if (
 		x <  __gfx_state.visible_area.x1
 	 || x >= __gfx_state.visible_area.x2 -GFX_GLOBAL_DISPLAY_SCALE+1
@@ -233,6 +236,7 @@ int32_t gfx_get_pixel(int16_t x, int16_t y) {
 	y+=GFX_GLOBAL_DISPLAY_SCALE_OFFSET_Y;
 	x*=GFX_GLOBAL_DISPLAY_SCALE;
 	y*=GFX_GLOBAL_DISPLAY_SCALE;
+
 	if (
 		x <  __gfx_state.visible_area.x1
 	 || x >= __gfx_state.visible_area.x2 -GFX_GLOBAL_DISPLAY_SCALE+1

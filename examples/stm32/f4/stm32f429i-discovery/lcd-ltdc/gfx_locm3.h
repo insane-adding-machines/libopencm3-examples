@@ -114,13 +114,13 @@ void gfx_set_surface(uint16_t *surface);
 uint16_t *
 gfx_get_surface(void);
 
-void gfx_offscreen_rendering_start(uint16_t *surface, int32_t width, int32_t height);
-void gfx_offscreen_rendering_stop(void);
+void gfx_offscreen_rendering_begin(uint16_t *surface, int32_t width, int32_t height);
+void gfx_offscreen_rendering_end(void);
 
 void
-gfx_set_surface_visible_area_max(void);
+gfx_set_clipping_area_max(void);
 void
-gfx_set_surface_visible_area(int16_t x1, int16_t y1, int16_t x2, int16_t y2);
+gfx_set_clipping_area(int16_t x1, int16_t y1, int16_t x2, int16_t y2);
 visible_area_t
 gfx_get_surface_visible_area(void);
 

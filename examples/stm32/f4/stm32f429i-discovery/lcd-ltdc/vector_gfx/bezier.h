@@ -1,45 +1,33 @@
 /*
- * h2_cubic_bezier.h
+ * This file is part of the libopencm3 project.
  *
- *  Created on: 31 Jul 2016
- *      Author: h2obrain
+ * Copyright (C) 2016 Oliver Meier <h2obrain@gmail.com>
+ *
+ * This library is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this library.  If not, see <http://www.gnu.org/licenses/>.
+ *
  */
 
-#ifndef H2_BEZIER_H_
-#define H2_BEZIER_H_
+#ifndef BEZIER_H_
+#define BEZIER_H_
 
-#include <stdlib.h>
-#include <stdbool.h>
-#include <inttypes.h>
-#include <float.h>
-#include <math.h>
-
-#include <assert.h>
-
-//#define h2bez_float__t       float
-//#define h2bez_float__EPSILON FLT_EPSILON
-//#define h2bez_float__abs     fabsf
-//#define h2bez_float__sqrt    sqrtf
-//#define h2bez_float__pow     powf
-// etc..
-
-#include "h2_vector.h"
-#define h2bez_float_t       h2vec_float_t
-#define h2bez_float_EPSILON h2vec_float_EPSILON
-#define h2bez_float_abs     h2vec_float_abs
-#define h2bez_float_sqrt    h2lin_float_sqrt
-#define h2bez_float_pow     h2vec_float_pow
-#define h2bez_float_atan2   h2vec_float_atan2
-#define h2bez_float_cos     h2vec_float_cos
-#define h2bez_float_min     h2lin_float_min
-#define h2bez_float_max     h2vec_float_max
-
+#include "vector_gfx.h"
 
 typedef struct {
-	point2d_t      p;
-	h2bez_float_t a,b;
-	h2bez_float_t beta;
-	h2bez_float_t dist;
+	point2d_t p;
+	vector_flt_t a,b;
+	vector_flt_t beta;
+	vector_flt_t dist;
 } bpoint_t;
 
 
@@ -71,15 +59,15 @@ h2_bezier_cubic(
 		point2d_t *int_points,
 		point2d_t *points,
 		uint32_t points_length,
-		h2bez_float_t overshoot,
-		h2bez_float_t tension
+		vector_flt_t overshoot,
+		vector_flt_t tension
 ) { //tension=.3
 
 	// TODO fill int_points with valid (linear) data
-	assert(points_length >= 3);
-//	if (points_length < 3) {
-//		return points;
-//	}
+//	assert(points_length >= 3);
+	if (points_length < 3) {
+		return;
+	}
 
 	point2d_t *ipp = int_points;
 	*ipp++ = points[0];
@@ -87,8 +75,8 @@ h2_bezier_cubic(
 	point2d_t p1,p2,p3;
 	point2d_t slope,slope1,slope2;
 	point2d_t offset,offset1,offset2;
-	h2bez_float_t dist,dist1,dist2;
-	h2bez_float_t ang,ang1,ang2;
+	vector_flt_t dist,dist1,dist2;
+	vector_flt_t ang,ang1,ang2;
 
 	slope  = point2d_sub_ts(points[1], points[0]);
 	offset = point2d_div_t(slope, tension);
@@ -109,25 +97,25 @@ h2_bezier_cubic(
 		dist2  = point2d_norm(slope2);
 
 		/* TODO use linear.. */
-		ang  = h2bez_float_atan2(slope.y,slope.x);
-		ang1 = h2bez_float_atan2(slope1.y,slope1.x);
-		ang2 = h2bez_float_atan2(slope2.y,slope2.x);
+		ang  = vector_flt_atan2(slope.y,slope.x);
+		ang1 = vector_flt_atan2(slope1.y,slope1.x);
+		ang2 = vector_flt_atan2(slope2.y,slope2.x);
 
-		dist1 *= h2bez_float_abs(h2bez_float_cos(ang1 - ang));
-		dist2 *= h2bez_float_abs(h2bez_float_cos(ang2 - ang));
+		dist1 *= vector_flt_abs(vector_flt_cos(ang1 - ang));
+		dist2 *= vector_flt_abs(vector_flt_cos(ang2 - ang));
 
-		h2bez_float_t cosAng = slope.x/dist;
-		h2bez_float_t sinAng = slope.y/dist;
+		vector_flt_t cosAng = slope.x/dist;
+		vector_flt_t sinAng = slope.y/dist;
 
 		offset1 = (point2d_t){ dist1 * cosAng / tension, dist1 * sinAng / tension};
 		offset2 = (point2d_t){ dist2 * cosAng / tension, dist2 * sinAng / tension };
 
-		h2bez_float_t om1 = point2d_norm(offset1);
-		h2bez_float_t om2 = point2d_norm(offset2);
+		vector_flt_t om1 = point2d_norm(offset1);
+		vector_flt_t om2 = point2d_norm(offset2);
 
-		offset1 = point2d_mul_t(offset1, h2bez_float_max(om1, overshoot)/om1);
+		offset1 = point2d_mul_t(offset1, vector_flt_max(om1, overshoot)/om1);
 
-		offset2 = point2d_mul_t(offset2, h2bez_float_max(om2, overshoot)/om2);
+		offset2 = point2d_mul_t(offset2, vector_flt_max(om2, overshoot)/om2);
 
 		*ipp++ = point2d_sub_ts(p2, offset1);
 		*ipp++ = p2;
@@ -165,15 +153,15 @@ h2_bezier_cubic_symmetric(
 		point2d_t *int_points,
 		point2d_t *points,
 		uint32_t points_length,
-		h2bez_float_t overshoot,
-		h2bez_float_t tension
+		vector_flt_t overshoot,
+		vector_flt_t tension
 ) { //tension=.3
 
 	// TODO fill int_points with valid (linear) data
-	assert(points_length >= 3);
-//	if (points_length < 3) {
-//		return points;
-//	}
+//	assert(points_length >= 3);
+	if (points_length < 3) {
+		return;
+	}
 
 	point2d_t *ipp = int_points;
 	//	var int_points:Vector.<Point> = new Vector.<Point>();
@@ -184,8 +172,8 @@ h2_bezier_cubic_symmetric(
 	point2d_t p1,p2,p3;
 	point2d_t slope,slope1;
 	point2d_t offset,offset1;
-	h2bez_float_t dist,dist1;
-	h2bez_float_t ang,ang1;
+	vector_flt_t dist,dist1;
+	vector_flt_t ang,ang1;
 
 	slope  = point2d_sub_ts(points[1], points[0]);
 	offset = point2d_div_t(slope, tension);
@@ -204,18 +192,18 @@ h2_bezier_cubic_symmetric(
 		dist1  = point2d_norm(slope1);
 
 		/* TODO use linear.. */
-		ang  = h2bez_float_atan2(slope.y,slope.x);
-		ang1 = h2bez_float_atan2(slope1.y,slope1.x);
+		ang  = vector_flt_atan2(slope.y,slope.x);
+		ang1 = vector_flt_atan2(slope1.y,slope1.x);
 
-		dist1 *= h2bez_float_abs(h2bez_float_cos(ang1 - ang));
+		dist1 *= vector_flt_abs(vector_flt_cos(ang1 - ang));
 
-		h2bez_float_t cosAng = slope.x/dist;
-		h2bez_float_t sinAng = slope.y/dist;
+		vector_flt_t cosAng = slope.x/dist;
+		vector_flt_t sinAng = slope.y/dist;
 
 		offset1 = (point2d_t){ dist1 * cosAng / tension, dist1 * sinAng / tension };
 
-		h2bez_float_t om1 = point2d_norm(offset1);
-		offset1 = point2d_mul_t(offset1, h2bez_float_max(om1, overshoot)/om1);
+		vector_flt_t om1 = point2d_norm(offset1);
+		offset1 = point2d_mul_t(offset1, vector_flt_max(om1, overshoot)/om1);
 
 		*ipp++ = point2d_sub_ts(p2, offset1);
 		*ipp++ = p2;
@@ -239,7 +227,7 @@ static inline
 void
 h2_bezier_draw_cubic(h2bez_draw_t draw, uint32_t num_segments, point2d_t p0, point2d_t p1, point2d_t p2, point2d_t p3) {
 	/* draw a single point.. */
-	if ( point2d_dist(p0,p1) < h2bez_float_EPSILON*100) { // TODO use better min-value.. (eg 1)
+	if ( point2d_dist(p0,p1) < vector_flt_EPSILON*100) { // TODO use better min-value.. (eg 1)
 		draw(p1,p1);
 		return;
 	}
@@ -252,7 +240,7 @@ h2_bezier_draw_cubic(h2bez_draw_t draw, uint32_t num_segments, point2d_t p0, poi
 
 	b1 = p0;
 
-	h2bez_float_t nsf = (h2bez_float_t)num_segments;
+	vector_flt_t nsf = (vector_flt_t)num_segments;
 
 	p10ns = point2d_div_t(point2d_sub_ts(p1,p0), nsf);
 	p21ns = point2d_div_t(point2d_sub_ts(p2,p1), nsf);
@@ -261,9 +249,9 @@ h2_bezier_draw_cubic(h2bez_draw_t draw, uint32_t num_segments, point2d_t p0, poi
 	for (uint32_t n=1; n < num_segments; n++) {
 		b0 = b1;
 
-		h2bez_float_t nf = (h2bez_float_t)n;
+		vector_flt_t nf = (vector_flt_t)n;
 
-		h2bez_float_t nt = nf/nsf;
+		vector_flt_t nt = nf/nsf;
 
 		q0 = point2d_add_ts(p0, point2d_mul_t(p10ns, nf));
 		q1 = point2d_add_ts(p1, point2d_mul_t(p21ns, nf));
@@ -284,17 +272,17 @@ static inline
 void
 h2_bezier_draw_cubic2(h2bez_draw_t draw, uint32_t num_segments, point2d_t p1, point2d_t p2, point2d_t p3, point2d_t p4) {
 	/* draw a single point.. */
-	if ( point2d_dist(p1,p4) < h2bez_float_EPSILON*100) { // TODO use better min-value..
+	if ( point2d_dist(p1,p4) < vector_flt_EPSILON*100) { // TODO use better min-value..
 		draw(p1,p1);
 		return;
 	}
 	point2d_t ps = p1;
 	for (uint32_t i=1; i <= num_segments; ++i) {
-		h2bez_float_t t = (h2bez_float_t)i / (h2bez_float_t)num_segments;
-		h2bez_float_t a = h2bez_float_pow((1 - t), 3);
-		h2bez_float_t b = 3 * t * h2bez_float_pow((1 - t), 2);
-		h2bez_float_t c = 3 * h2bez_float_pow(t, 2) * (1 - t);
-		h2bez_float_t d = h2bez_float_pow(t, 3);
+		vector_flt_t t = (vector_flt_t)i / (vector_flt_t)num_segments;
+		vector_flt_t a = vector_flt_pow((1 - t), 3);
+		vector_flt_t b = 3 * t * vector_flt_pow((1 - t), 2);
+		vector_flt_t c = 3 * vector_flt_pow(t, 2) * (1 - t);
+		vector_flt_t d = vector_flt_pow(t, 3);
 
 		point2d_t pe = (point2d_t) {
 			.x = a * p1.x + b * p2.x + c * p3.x + d * p4.x,
@@ -315,12 +303,12 @@ h2_bezier_draw_cubic2(h2bez_draw_t draw, uint32_t num_segments, point2d_t p1, po
 //h2bez_curve_to_2(point2d_t start, point2d_t control, point2d_t end) {
 //	int npts = (b.Length) / 2;
 //	int icount, jcount;
-//	h2bez_float_t step, t;
+//	vector_flt_t step, t;
 //
 //	// Calculate points on curve
 //	icount = 0;
 //	t = 0;
-//	step = (h2bez_float_t)1.0 / (cpts - 1);
+//	step = (vector_flt_t)1.0 / (cpts - 1);
 //
 //	for (int i1 = 0; i1 != cpts; i1++) {
 //		if ((1.0 - t) < 5e-6);
@@ -330,7 +318,7 @@ h2_bezier_draw_cubic2(h2bez_draw_t draw, uint32_t num_segments, point2d_t p1, po
 //		p[icount] = 0.0;
 //		p[icount + 1] = 0.0;
 //		for (int i = 0; i != npts; i++) {
-//			h2bez_float_t basis = Bernstein(npts - 1, i, t);
+//			vector_flt_t basis = Bernstein(npts - 1, i, t);
 //			p[icount] += basis * b[jcount];
 //			p[icount + 1] += basis * b[jcount + 1];
 //			jcount = jcount +2;
@@ -354,7 +342,7 @@ h2_bezier_draw_cubic2(h2bez_draw_t draw, uint32_t num_segments, point2d_t p1, po
 //	for(uint32_t j = 0; j < (int_points_length - 1)/3; j++) { // FIXME make sure the last point is always drawn..
 //		drawBezierMidpoint(curve_to_fct, int_points[3*j],int_points[3*j+1],int_points[3*j+2],int_points[3*j+3]);
 //	}
-////	for(h2bez_float__t j = 0; j < (int_points_length - 1)/3; j++) {
+////	for(vector_flt_t j = 0; j < (int_points_length - 1)/3; j++) {
 ////		drawBezierMidpoint(curve_to_fct, int_points[3*j],int_points[3*j+1],int_points[3*j+2],int_points[3*j+3]);
 ////	}
 //}
@@ -375,8 +363,8 @@ h2_bezier_draw_cubic2(h2bez_draw_t draw, uint32_t num_segments, point2d_t p1, po
 //
 //	// get 1/16 of the [p3, p0] segment
 //	point2d_t diff_16 = point2d_div_t(point2d_sub_ts(p3,p1),16);
-////	var dx:h2bez_float__t = (p3.x - p0.x)/16;
-////	var dy:h2bez_float__t = (p3.y - p0.y)/16;
+////	var dx:vector_flt_t = (p3.x - p0.x)/16;
+////	var dy:vector_flt_t = (p3.y - p0.y)/16;
 //
 //	// calculates control point 1
 //	point2d_t Pc_1 = getPointOnSegment(p0, p1, 3/8);
@@ -413,10 +401,10 @@ h2_bezier_draw_cubic2(h2bez_draw_t draw, uint32_t num_segments, point2d_t p1, po
 ///////////////  Cheap h2o hack   /////////////////////////////////////////////////////
 //static inline
 //function
-//getBeziers(PointMultiplier:h2bez_float__t, int_points:Vector.<Point>):Vector.<Point> {
+//getBeziers(PointMultiplier:vector_flt_t, int_points:Vector.<Point>):Vector.<Point> {
 //	var points:Vector.<Point> = new Vector.<Point>();
 //	points.push(int_points[0]);
-//	for(var j:h2bez_float__t = 0; j < (int_points.length - 1)/3; j++) {
+//	for(var j:vector_flt_t = 0; j < (int_points.length - 1)/3; j++) {
 //		points = points.concat(getBezierMidpoint(PointMultiplier, int_points[3 * j], int_points[3 * j + 1], int_points[3 * j + 2], int_points[3 * j + 3], points[points_length - 1]));
 //	}
 //	return points;
@@ -424,14 +412,14 @@ h2_bezier_draw_cubic2(h2bez_draw_t draw, uint32_t num_segments, point2d_t p1, po
 //
 //static inline
 //function
-//getBezierMidpoint(PointMultiplier:h2bez_float__t, p0:Point, p1:Point, p2:Point, p3:Point, oldp3:Point):Vector.<Point> {
+//getBezierMidpoint(PointMultiplier:vector_flt_t, p0:Point, p1:Point, p2:Point, p3:Point, oldp3:Point):Vector.<Point> {
 //	// calculates the useful base points
 //	var PA:Point = getPointOnSegment(p0, p1, 3/4);
 //	var PB:Point = getPointOnSegment(p3, p2, 3/4);
 //
 //	// get 1/16 of the [p3, p0] segment
-//	var dx:h2bez_float__t = (p3.x - p0.x)/16;
-//	var dy:h2bez_float__t = (p3.y - p0.y)/16;
+//	var dx:vector_flt_t = (p3.x - p0.x)/16;
+//	var dy:vector_flt_t = (p3.y - p0.y)/16;
 //
 //	// calculates control point 1
 //	var Pc_1:Point = getPointOnSegment(p0, p1, 3/8);
@@ -474,9 +462,9 @@ h2_bezier_draw_cubic2(h2bez_draw_t draw, uint32_t num_segments, point2d_t p1, po
 //
 //static inline
 //function
-//getMultiQuadBezier(n:h2bez_float__t, p0:Point, p1:Point, p2:Point):Vector.<Point> {
-//	var td:h2bez_float__t = 1 / n;
-//	var t0:h2bez_float__t = td;   // !0, >0
+//getMultiQuadBezier(n:vector_flt_t, p0:Point, p1:Point, p2:Point):Vector.<Point> {
+//	var td:vector_flt_t = 1 / n;
+//	var t0:vector_flt_t = td;   // !0, >0
 //
 //	var point:Vector.<Point> = new Vector.<Point>();
 //	for (var i:int = 0; i < n; i++) {
@@ -488,7 +476,7 @@ h2_bezier_draw_cubic2(h2bez_draw_t draw, uint32_t num_segments, point2d_t p1, po
 //}
 //static inline
 //function
-//getQuadBezier(t:h2bez_float__t, p0:Point, p1:Point, p2:Point):Point {
+//getQuadBezier(t:vector_flt_t, p0:Point, p1:Point, p2:Point):Point {
 //	return new Point(
 //		Math.pow(1 - t, 2) * p0.x + 2 * t * (1 - t) * p1.x + Math.pow(t, 2) * p2.x,
 //		Math.pow(1 - t, 2) * p0.y + 2 * t * (1 - t) * p1.y + Math.pow(t, 2) * p2.y
@@ -497,9 +485,9 @@ h2_bezier_draw_cubic2(h2bez_draw_t draw, uint32_t num_segments, point2d_t p1, po
 //
 //static inline
 //function
-//getMultiCubicBezier(n:h2bez_float__t, p0:Point, p1:Point, p2:Point, p3:Point):Vector.<Point> {
-//	var td:h2bez_float__t = 1 / (n + 1);
-//	var t0:h2bez_float__t = td / 2;
+//getMultiCubicBezier(n:vector_flt_t, p0:Point, p1:Point, p2:Point, p3:Point):Vector.<Point> {
+//	var td:vector_flt_t = 1 / (n + 1);
+//	var t0:vector_flt_t = td / 2;
 //
 //	var point:Vector.<Point> = new Vector.<Point>();
 //	for (var i:int = 0; i < n; i++) {
@@ -510,7 +498,7 @@ h2_bezier_draw_cubic2(h2bez_draw_t draw, uint32_t num_segments, point2d_t p1, po
 //}
 //static inline
 //function
-//getCubicBezier(t:h2bez_float__t, p0:Point, p1:Point, p2:Point, p3:Point):Point {
+//getCubicBezier(t:vector_flt_t, p0:Point, p1:Point, p2:Point, p3:Point):Point {
 //	return new Point(
 //		(-p0.x + 3*p1.x-3*p2.x+p3.x)*Math.pow(t,3)+(3*p0.x-6*p1.x+3*p2.x)*Math.pow(t,2)+(-3*p0.x+3*p1.x)*t+p0.x,
 //		(-p0.y + 3*p1.y-3*p2.y+p3.y)*Math.pow(t,3)+(3*p0.y-6*p1.y+3*p2.y)*Math.pow(t,2)+(-3*p0.y+3*p1.y)*t+p0.y
@@ -522,11 +510,11 @@ h2_bezier_draw_cubic2(h2bez_draw_t draw, uint32_t num_segments, point2d_t p1, po
 //static inline
 //function
 //getAngleAndDistance(p1:Point, p2:Point):Object {
-//	var x:h2bez_float__t = p2.x - p1.x;
-//	var y:h2bez_float__t = p2.y - p1.y;
+//	var x:vector_flt_t = p2.x - p1.x;
+//	var y:vector_flt_t = p2.y - p1.y;
 //
 //	var AnD:Object = new Object();
-//	AnD.beta = h2bez_float__atan2(x, y);
+//	AnD.beta = vector_flt_atan2(x, y);
 //	/*
 //	AnD.beta = Math.atan(AnD.b / AnD.a);
 //	// normalizing angles
@@ -541,11 +529,11 @@ h2_bezier_draw_cubic2(h2bez_draw_t draw, uint32_t num_segments, point2d_t p1, po
 ///*
 //static inline
 //function
-//getAnglesAndDistance(p:Vector.<Point>, dirPos:Boolean = true, start:h2bez_float__t = 0, end:h2bez_float__t = 0):Vector.<PointInfo> {
+//getAnglesAndDistance(p:Vector.<Point>, dirPos:Boolean = true, start:vector_flt_t = 0, end:vector_flt_t = 0):Vector.<PointInfo> {
 //	if (p.length < 2) { return null; }
 //	// enable direction start and end
 //	var pI:Vector.<PointInfo> = new Vector.<PointInfo>();
-//	for (var j:h2bez_float__t = 0; j < p.length - 1; j++) {
+//	for (var j:vector_flt_t = 0; j < p.length - 1; j++) {
 //		var AnD:Object=getAngleAndDistance(p[j], p[j+1]);
 //		p[j].a = AnD.a;
 //		p[j].b = AnD.b;
@@ -560,16 +548,16 @@ h2_bezier_draw_cubic2(h2bez_draw_t draw, uint32_t num_segments, point2d_t p1, po
 //// doesn't work
 //static inline
 //function
-//removePointsByAngleAndDistance(angle:h2bez_float__t, distance:h2bez_float__t, p:Vector.<Point>):Vector.<Point> {
+//removePointsByAngleAndDistance(angle:vector_flt_t, distance:vector_flt_t, p:Vector.<Point>):Vector.<Point> {
 //	if (p.length < 3) { return null; }
 //	var np:Vector.<Point> = new Vector.<Point>();
 //	np.push(p[0]);
 //	var AnD:Object=getAngleAndDistance(p[0], p[1]);
-//	var ang:h2bez_float__t = AnD.beta; var dist:h2bez_float__t = AnD.dist;
-//	for (var i:h2bez_float__t = 1; i < p.length; i++) {
+//	var ang:vector_flt_t = AnD.beta; var dist:vector_flt_t = AnD.dist;
+//	for (var i:vector_flt_t = 1; i < p.length; i++) {
 //		AnD = getAngleAndDistance(p[i-1], p[i]);
 //		dist += AnD.dist;
-//		if (h2bez_float__abs(ang - AnD.beta) >= angle || dist >= distance) {
+//		if (vector_flt_abs(ang - AnD.beta) >= angle || dist >= distance) {
 //			np.push(p[i]);
 //			//dist = AnD.dist; ang = AnD.beta;
 //			dist = 0; ang = AnD.beta;
@@ -580,12 +568,12 @@ h2_bezier_draw_cubic2(h2bez_draw_t draw, uint32_t num_segments, point2d_t p1, po
 //}
 //static inline
 //function
-//removePointsByDistance(distance:h2bez_float__t, p:Vector.<Point>):Vector.<Point> {
+//removePointsByDistance(distance:vector_flt_t, p:Vector.<Point>):Vector.<Point> {
 //	if (p.length < 2) { return null; }
 //	var np:Vector.<Point> = new Vector.<Point>();
 //	np.push(p[0]);
-//	var dist:h2bez_float__t = 0;
-//	for (var i:h2bez_float__t = 1; i < p.length - 1; i++) {
+//	var dist:vector_flt_t = 0;
+//	for (var i:vector_flt_t = 1; i < p.length - 1; i++) {
 //		var AnD:Object=getAngleAndDistance(p[i], p[i + 1]);
 //		dist += AnD.dist;
 //		if (dist >= distance) {
@@ -597,9 +585,9 @@ h2_bezier_draw_cubic2(h2bez_draw_t draw, uint32_t num_segments, point2d_t p1, po
 //}
 //static inline
 //function
-//useEachNthPoint(n:h2bez_float__t, p:Vector.<Point>):Vector.<Point> {
+//useEachNthPoint(n:vector_flt_t, p:Vector.<Point>):Vector.<Point> {
 //	var np:Vector.<Point> = new Vector.<Point>();
-//	for (var i:h2bez_float__t = 0; i < p.length; i++) {
+//	for (var i:vector_flt_t = 0; i < p.length; i++) {
 //		if (p.length / i == Math.floor(p.length / i)) {
 //			np.push(p[i]);
 //		}
@@ -612,7 +600,7 @@ h2_bezier_draw_cubic2(h2bez_draw_t draw, uint32_t num_segments, point2d_t p1, po
 //
 //static inline
 //point2d_t
-//getPointOnSegment(point2d_t p0, point2d_t p1, h2bez_float__t ratio) {
+//getPointOnSegment(point2d_t p0, point2d_t p1, vector_flt_t ratio) {
 //	return (point2d_t) { p0.x + ((p1.x - p0.x) * ratio), p0.y + ((p1.y - p0.y) * ratio) };
 //}
 //
@@ -621,4 +609,4 @@ h2_bezier_draw_cubic2(h2bez_draw_t draw, uint32_t num_segments, point2d_t p1, po
 //getMiddle(point2d_t p0, point2d_t p1) {
 //	return (point2d_t) { (p0.x + p1.x) / 2, (p0.y + p1.y) / 2 };
 //}
-#endif /* H2_BEZIER_H_ */
+#endif /* BEZIER_H_ */
