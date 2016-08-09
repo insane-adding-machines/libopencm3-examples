@@ -2,7 +2,7 @@ OBJS = clock.o gfx_locm3.o lcd_ili9341.o sdram.o Tamsyn5x9b_9.o Tamsyn5x9r_9.o
 
 BINARY = application
 
-CFLAGS += -O3
+CFLAGS += -O3 -g
 
 # we use sin/cos from the library
 LDLIBS += -lm

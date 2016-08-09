@@ -23,16 +23,16 @@
 //#define h2bez_float__pow     powf
 // etc..
 
-#include "h2_linear.h"
-#define h2bez_float_t       h2lin_float_t
-#define h2bez_float_EPSILON h2lin_float_EPSILON
-#define h2bez_float_abs     h2lin_float_abs
+#include "h2_vector.h"
+#define h2bez_float_t       h2vec_float_t
+#define h2bez_float_EPSILON h2vec_float_EPSILON
+#define h2bez_float_abs     h2vec_float_abs
 #define h2bez_float_sqrt    h2lin_float_sqrt
-#define h2bez_float_pow     h2lin_float_pow
-#define h2bez_float_atan2   h2lin_float_atan2
-#define h2bez_float_cos     h2lin_float_cos
+#define h2bez_float_pow     h2vec_float_pow
+#define h2bez_float_atan2   h2vec_float_atan2
+#define h2bez_float_cos     h2vec_float_cos
 #define h2bez_float_min     h2lin_float_min
-#define h2bez_float_max     h2lin_float_max
+#define h2bez_float_max     h2vec_float_max
 
 
 typedef struct {

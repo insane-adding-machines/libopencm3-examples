@@ -38,13 +38,15 @@
 
 #include "gfx_locm3.h"
 
-gfx_state_t __gfx_state;
+gfx_state_t __gfx_state = {0};
 
 /*
  * Make sure the surface is aligned for 32bit!
  */
 void
 gfx_init(uint16_t *surface, int32_t width, int32_t height) {
+	__gfx_state.is_offscreen_rendering = 0;
+
 	*(uint16_t*)&__gfx_state.width_orig  = width;
 	*(uint16_t*)&__gfx_state.height_orig = height;
 	*(uint32_t*)&__gfx_state.pixel_count = (uint32_t)width*(uint32_t)height;
@@ -61,12 +63,41 @@ gfx_init(uint16_t *surface, int32_t width, int32_t height) {
 	__gfx_state.surface      = surface;
 	__gfx_state.font         = NULL;
 }
+
+static gfx_state_t __gfx_state_bkp = {0};
+
 void gfx_set_surface(uint16_t *surface) {
-	__gfx_state.surface = surface;
+	// TODO add lock
+	if (__gfx_state.is_offscreen_rendering) {
+		__gfx_state_bkp.surface = surface;
+	} else {
+		__gfx_state.surface = surface;
+	}
 }
 uint16_t *
 gfx_get_surface() {
-	return __gfx_state.surface;
+	// TODO add lock
+	if (__gfx_state.is_offscreen_rendering) {
+		return __gfx_state_bkp.surface;
+	} else {
+		return __gfx_state.surface;
+	}
+}
+
+void gfx_offscreen_rendering_start(uint16_t *surface, int32_t width, int32_t height) {
+	// TODO add lock
+	if (!__gfx_state.is_offscreen_rendering) {
+//		__gfx_state_bkp = __gfx_state; ???
+		memcpy(&__gfx_state_bkp, &__gfx_state, sizeof(gfx_state_t));
+	}
+	gfx_init(surface, width, height);
+	__gfx_state.is_offscreen_rendering = 1;
+}
+void gfx_offscreen_rendering_stop() {
+	// TODO add lock
+	if (__gfx_state.is_offscreen_rendering) {
+		memcpy(&__gfx_state, &__gfx_state_bkp, sizeof(gfx_state_t));
+	}
 }
 
 void
@@ -464,7 +495,7 @@ gfx_flood_fill4(int16_t x, int16_t y, uint16_t old_color, uint16_t new_color, ui
 		} else {
 			/* fill all lastline-adjacent old-colored pixels */
 			bool adjacent_pixel_drawn = false;
-			int16_t xa0, xa1;
+			int16_t xa0, xa1=0;
 			while ((x > x0l) || adjacent_pixel_drawn) {
 				if (gfx_get_pixel(--x, y) == old_color) {
 					gfx_draw_pixel(x, y, new_color);
@@ -523,7 +554,7 @@ gfx_flood_fill4(int16_t x, int16_t y, uint16_t old_color, uint16_t new_color, ui
 	}
 
 #ifdef SHOW_FILLING
-	msleep_loop(20000);
+	msleep_loop(5000);
 #endif
 
 	return queue.stats;

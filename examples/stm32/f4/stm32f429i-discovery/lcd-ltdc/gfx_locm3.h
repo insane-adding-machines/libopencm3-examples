@@ -81,6 +81,7 @@ typedef struct {
 } visible_area_t;
 
 typedef struct {
+	uint32_t is_offscreen_rendering;
 	const int16_t width_orig, height_orig;
 	const uint32_t pixel_count;
     int16_t width, height;
@@ -112,6 +113,9 @@ void gfx_init(uint16_t *surface, int32_t w, int32_t h);
 void gfx_set_surface(uint16_t *surface);
 uint16_t *
 gfx_get_surface(void);
+
+void gfx_offscreen_rendering_start(uint16_t *surface, int32_t width, int32_t height);
+void gfx_offscreen_rendering_stop(void);
 
 void
 gfx_set_surface_visible_area_max(void);
